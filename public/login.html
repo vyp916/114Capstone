@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>登入</title>
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+
+  <div class="auth-box">
+    <img class="logo" src="assets/logo.png" alt="logo">
+    <h1>登入系統</h1>
+
+    <form id="loginForm">
+      <input type="text" name="username" placeholder="使用者名稱" required>
+      <input type="password" name="password" placeholder="密碼" required>
+      <button type="submit">登入</button>
+    </form>
+
+    <p>還沒有帳號？ <a href="register.html">前往註冊</a></p>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const formData = Object.fromEntries(new FormData(e.target));
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      alert(data.message);
+      if (res.ok) location.href = "index.html";
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>註冊</title>
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+
+  <div class="auth-box">
+    <img class="logo" src="assets/logo.png" alt="logo">
+    <h1>註冊帳號</h1>
+
+    <form id="registerForm">
+
+      <input type="text" name="username" placeholder="使用者名稱" required>
+      <input type="email" name="email" placeholder="電子郵件" required>
+      <input type="password" name="password" placeholder="密碼" required>
+
+      <label>性別</label>
+      <select name="gender">
+        <option value="不透露" selected>不透露</option>
+        <option value="男">男</option>
+        <option value="女">女</option>
+        <option value="其他">其他</option>
+      </select>
+
+      <label>年齡</label>
+      <input type="number" name="age" min="0" max="120" placeholder="例如：25">
+
+      <label>上傳頭像 (1:1)</label>
+      <input type="file" id="avatarInput" accept="image/*">
+
+      <div style="text-align:center;">
+        <img id="avatarPreview" 
+             src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png"
+             style="width:96px;height:96px;object-fit:cover;margin-top:10px;">
+      </div>
+
+      <button type="submit">註冊</button>
+    </form>
+
+    <p>已有帳號？ <a href="login.html">前往登入</a></p>
+  </div>
+
+  <script>
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarPreview = document.getElementById('avatarPreview');
+
+    avatarInput.addEventListener('change', () => {
+      const f = avatarInput.files[0];
+      avatarPreview.src = f ? URL.createObjectURL(f)
+                            : "https://cdn-icons-png.flaticon.com/512/1946/1946429.png";
+    });
+
+    document.getElementById("registerForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const formJson = Object.fromEntries(new FormData(e.target));
+
+      /* === 1. 建立帳號 === */
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formJson)
+      });
+      const data = await res.json();
+      alert(data.message);
+      if (res.status !== 201) return;
+
+      /* === 2. 自動登入 === */
+      await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username: formJson.username, password: formJson.password })
+      });
+
+      /* === 3. 上傳頭像 === */
+      if (avatarInput.files.length > 0) {
+        const fd = new FormData();
+        fd.append("avatar", avatarInput.files[0]);
+        await fetch("/api/upload-avatar", {
+          method: "POST",
+          credentials: "include",
+          body: fd
+        });
+      }
+
+      /* === 4. 完成導向 === */
+      location.href = "index.html";
+    });
+  </script>
+
+</body>
+</html>

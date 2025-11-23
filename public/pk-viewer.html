@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>PK - Viewer</title>
+  <link rel="stylesheet" href="style-modern.css">
+  <style>
+    .pk-container { display:flex; gap:12px; align-items:stretch; }
+    .pk-side { flex:1; background:#111; color:#fff; border-radius:8px; padding:8px; }
+    video { width:100%; height:calc(100vh - 180px); object-fit:cover; background:#000; border-radius:6px; }
+    .pk-vote-btn {
+      padding:8px 14px;
+      border-radius:6px;
+      border:none;
+      color:#fff;
+      font-weight:600;
+      cursor:pointer;
+      transition:transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+    }
+    .pk-vote-btn.left { background:linear-gradient(90deg,#ff6b6b,#ff4081); box-shadow:0 8px 18px rgba(255,64,129,0.25); }
+    .pk-vote-btn.right { background:linear-gradient(90deg,#42a5f5,#7c4dff); box-shadow:0 8px 18px rgba(124,77,255,0.25); }
+    .pk-vote-btn.voted { opacity:0.85; transform:scale(0.97); }
+    .pk-vote-btn:disabled { cursor:not-allowed; opacity:0.6; }
+    .pk-react-btn {
+      width:46px;
+      height:46px;
+      border-radius:50%;
+      border:none;
+      font-size:22px;
+      cursor:pointer;
+      background:rgba(255,255,255,0.08);
+      color:#fff;
+      transition:transform 0.15s ease, background 0.15s ease;
+    }
+    .pk-react-btn:hover { transform:translateY(-2px) scale(1.05); background:rgba(255,255,255,0.18); }
+    .vote-burst {
+      position:fixed;
+      pointer-events:none;
+      color:#fff;
+      font-weight:700;
+      text-shadow:0 0 8px rgba(255,255,255,0.6);
+      opacity:0;
+      transform:translate(-50%,0) scale(0.8);
+      transition:opacity 0.4s ease, transform 0.4s ease;
+      z-index:9999;
+    }
+    .vote-burst.show { opacity:1; transform:translate(-50%,-45px) scale(1.15); }
+    .pk-toast {
+      position:fixed;
+      bottom:24px;
+      left:50%;
+      transform:translate(-50%,20px);
+      background:rgba(0,0,0,0.78);
+      color:#fff;
+      padding:10px 18px;
+      border-radius:999px;
+      box-shadow:0 10px 25px rgba(0,0,0,0.35);
+      font-weight:600;
+      opacity:0;
+      transition:opacity 0.2s ease, transform 0.2s ease;
+      z-index:99999;
+    }
+    .pk-toast.show { opacity:1; transform:translate(-50%,0); }
+  </style>
+</head>
+<body>
+  <h2>PK 觀看畫面</h2>
+  <div id="info">等待導向中…</div>
+  <div class="pk-container">
+    <div class="pk-side">
+      <h3>主播 A</h3>
+      <video id="videoA" autoplay playsinline controls muted></video>
+    </div>
+    <div class="pk-side">
+      <h3>主播 B</h3>
+      <video id="videoB" autoplay playsinline controls muted></video>
+    </div>
+  </div>
+
+  <!-- PK vote / heat UI -->
+  <div style="display:flex; gap:12px; margin:12px 0; max-width:980px; margin-left:auto; margin-right:auto;">
+    <div style="flex:1; text-align:center; color:#fff;">
+      <div id="leftLabel">主播 A</div>
+      <div style="height:18px;background:rgba(255,255,255,0.06);border-radius:10px;margin:8px 12px;overflow:hidden;">
+        <div id="leftHeat" style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b6b,#ff4081);"></div>
+      </div>
+  <button id="voteLeft" class="pk-vote-btn left">支持 主播 A</button>
+    </div>
+    <div style="flex:1; text-align:center; color:#fff;">
+      <div id="rightLabel">主播 B</div>
+      <div style="height:18px;background:rgba(255,255,255,0.06);border-radius:10px;margin:8px 12px;overflow:hidden;">
+        <div id="rightHeat" style="height:100%;width:0%;background:linear-gradient(90deg,#42a5f5,#7c4dff);"></div>
+      </div>
+    <button id="voteRight" class="pk-vote-btn right">支持 主播 B</button>
+    </div>
+  </div>
+
+  <!-- reaction buttons for PK viewer -->
+  <div style="max-width:980px;margin:8px auto 0;display:flex;gap:8px;justify-content:center;">
+    <button class="pk-react-btn" data-type="heart">💖</button>
+    <button class="pk-react-btn" data-type="laugh">😄</button>
+    <button class="pk-react-btn" data-type="cry">😢</button>
+    <button class="pk-react-btn" data-type="like">👍</button>
+  </div>
+  <div id="reactionLayer" style="position:fixed; right:20px; top:80px; left:20px; bottom:0; pointer-events:none; overflow:visible; z-index:9999;"></div>
+
+  <!-- Chat area for PK viewer (same as regular viewer) -->
+  <aside class="chat-area" style="width:100%; max-width:980px; margin:12px auto 0;">
+    <div id="chatContainer" style="background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
+      <div id="messages" style="height:52vh; overflow:auto; margin-bottom:8px;"></div>
+      <div class="chat-input-row" style="display:flex; gap:8px;">
+        <input id="chatInput" placeholder="輸入訊息..." style="flex:1; padding:8px; border-radius:6px; border:1px solid #444; background:transparent; color:#fff;">
+        <button id="sendBtn" disabled style="padding:8px 10px; border-radius:6px;">送出</button>
+      </div>
+    </div>
+  </aside>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const params = new URLSearchParams(window.location.search);
+    const combinedRoom = params.get('room');
+    const leftOwnerParam = params.get('left') || params.get('leftOwner') || null;
+    const rightOwnerParam = params.get('right') || params.get('rightOwner') || null;
+    const leftLabelEl = document.getElementById('leftLabel');
+    const rightLabelEl = document.getElementById('rightLabel');
+    const leftHeatEl = document.getElementById('leftHeat');
+    const rightHeatEl = document.getElementById('rightHeat');
+    const voteLeftBtn = document.getElementById('voteLeft');
+    const voteRightBtn = document.getElementById('voteRight');
+    let leftOwnerId = leftOwnerParam;
+    let rightOwnerId = rightOwnerParam;
+    let latestCounts = {};
+    let toastTimer = null;
+
+    if (!combinedRoom) {
+      document.getElementById('info').textContent = '錯誤：缺少合併房間編號';
+    } else {
+      document.getElementById('info').textContent = `合併房間：${combinedRoom}`;
+      renderVoteUI();
+      // join combined room as viewer - server will have emitted 'pk-merged' instructing redirect
+      socket.emit('join-room', combinedRoom);
+      // ask to receive streams: emit watcher so broadcasters create offers to this viewer
+      socket.emit('watcher');
+    }
+
+    function getDisplayName(side) {
+      if (side === 'left') return leftOwnerId || '主播 A';
+      return rightOwnerId || '主播 B';
+    }
+
+    function renderVoteUI() {
+      if (!leftLabelEl || !rightLabelEl) return;
+      const leftName = getDisplayName('left');
+      const rightName = getDisplayName('right');
+      const leftKey = leftOwnerId ? String(leftOwnerId) : null;
+      const rightKey = rightOwnerId ? String(rightOwnerId) : null;
+      const leftCount = (leftKey && latestCounts[leftKey]) ? latestCounts[leftKey] : 0;
+      const rightCount = (rightKey && latestCounts[rightKey]) ? latestCounts[rightKey] : 0;
+      leftLabelEl.textContent = `${leftName} • ${leftCount}`;
+      rightLabelEl.textContent = `${rightName} • ${rightCount}`;
+      if (voteLeftBtn) {
+        voteLeftBtn.dataset.defaultText = `支持 ${leftName}`;
+        if (!voteLeftBtn.classList.contains('voted')) voteLeftBtn.textContent = voteLeftBtn.dataset.defaultText;
+      }
+      if (voteRightBtn) {
+        voteRightBtn.dataset.defaultText = `支持 ${rightName}`;
+        if (!voteRightBtn.classList.contains('voted')) voteRightBtn.textContent = voteRightBtn.dataset.defaultText;
+      }
+    }
+
+    function createVoteBurst(target) {
+      if (!target || typeof target.getBoundingClientRect !== 'function') return;
+      const rect = target.getBoundingClientRect();
+      const burst = document.createElement('div');
+      burst.className = 'vote-burst';
+      burst.textContent = '+1';
+      burst.style.left = `${rect.left + rect.width / 2}px`;
+      burst.style.top = `${rect.top}px`;
+      document.body.appendChild(burst);
+      requestAnimationFrame(() => burst.classList.add('show'));
+      setTimeout(() => { burst.classList.remove('show'); }, 480);
+      setTimeout(() => { try { burst.remove(); } catch (e) {} }, 640);
+    }
+
+    function flashVoteButton(button) {
+      if (!button) return;
+      const defaultText = button.dataset.defaultText || button.textContent;
+      button.classList.add('voted');
+      button.disabled = true;
+      button.textContent = '已送出 +1';
+      createVoteBurst(button);
+      setTimeout(() => {
+        button.classList.remove('voted');
+        button.disabled = false;
+        button.textContent = defaultText;
+      }, 1500);
+    }
+
+    function showToast(message) {
+      if (!message) return;
+      let toast = document.getElementById('__pk_toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = '__pk_toast';
+        toast.className = 'pk-toast';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = message;
+      toast.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 1600);
+    }
+
+    function handleVote(side) {
+      if (!combinedRoom) return;
+      const targetOwner = side === 'left' ? leftOwnerId : rightOwnerId;
+      const button = side === 'left' ? voteLeftBtn : voteRightBtn;
+      if (!targetOwner) {
+        showToast('尚未取得 PK 雙方資訊，請稍候');
+        return;
+      }
+      socket.emit('pk-vote', { roomId: combinedRoom, ownerId: targetOwner });
+      flashVoteButton(button);
+    }
+
+    if (voteLeftBtn) voteLeftBtn.addEventListener('click', () => handleVote('left'));
+    if (voteRightBtn) voteRightBtn.addEventListener('click', () => handleVote('right'));
+
+    // --- multi-peer handling: accept offers from two broadcasters and attach to videoA/videoB ---
+    const peers = {}; // map broadcasterSocketId -> RTCPeerConnection
+    const pendingCandidates = {};
+    const assigned = { slotA: null, slotB: null }; // record which peer is on which video
+
+    function attachStreamToSlot(stream, peerId) {
+      // assign first free slot
+      const videoA = document.getElementById('videoA');
+      const videoB = document.getElementById('videoB');
+      if (!assigned.slotA) {
+        assigned.slotA = peerId;
+        videoA.srcObject = stream;
+        videoA.play().catch(()=>{});
+        return 'A';
+      }
+      if (!assigned.slotB && assigned.slotA !== peerId) {
+        assigned.slotB = peerId;
+        videoB.srcObject = stream;
+        videoB.play().catch(()=>{});
+        return 'B';
+      }
+      // if peer already assigned to a slot, update its video
+      if (assigned.slotA === peerId) { videoA.srcObject = stream; return 'A'; }
+      if (assigned.slotB === peerId) { videoB.srcObject = stream; return 'B'; }
+      return null;
+    }
+
+    socket.on('offer', async (id, description) => {
+      try {
+        console.log('[pk-viewer] offer from', id);
+        // create pc per broadcaster
+        if (peers[id]) {
+          try { peers[id].close(); } catch (e) {}
+          delete peers[id];
+        }
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        peers[id] = pc;
+
+        pc.ontrack = ev => {
+          try {
+            attachStreamToSlot(ev.streams[0], id);
+          } catch (e) { console.warn('attachStream failed', e); }
+        };
+
+        pc.onicecandidate = evt => {
+          if (evt.candidate) socket.emit('candidate', id, evt.candidate);
+        };
+
+        // add any pending remote candidates
+        if (pendingCandidates[id] && pendingCandidates[id].length) {
+          for (const c of pendingCandidates[id]) try { pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
+          delete pendingCandidates[id];
+        }
+
+        await pc.setRemoteDescription(description);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('answer', id, pc.localDescription);
+        console.log('[pk-viewer] sent answer to', id);
+      } catch (err) {
+        console.error('PK viewer offer handling error', err);
+      }
+    });
+
+    // handle pk votes updates
+      socket.on('pk-votes-updated', ({ counts = {}, total = 0 }) => {
+        try {
+          latestCounts = counts || {};
+          const keys = Object.keys(counts || {});
+          if (!leftOwnerId && keys.length) leftOwnerId = keys[0];
+          if (!rightOwnerId) {
+            const fallback = keys.find(k => k !== leftOwnerId);
+            if (fallback) rightOwnerId = fallback;
+          }
+          if (!rightOwnerId && keys.length === 1 && leftOwnerId !== keys[0]) {
+            rightOwnerId = keys[0];
+          }
+          const leftKey = leftOwnerId ? String(leftOwnerId) : (keys[0] || null);
+          const rightKey = rightOwnerId ? String(rightOwnerId) : (keys.find(k => k !== leftKey) || keys[0] || null);
+          const leftCount = leftKey ? (counts[leftKey] || 0) : 0;
+          const rightCount = rightKey ? (counts[rightKey] || 0) : 0;
+          const totalVal = total || leftCount + rightCount || 1;
+          if (leftHeatEl) leftHeatEl.style.width = Math.round((leftCount / (totalVal || 1)) * 100) + '%';
+          if (rightHeatEl) rightHeatEl.style.width = Math.round((rightCount / (totalVal || 1)) * 100) + '%';
+          renderVoteUI();
+        } catch (e) { console.warn('failed to update pk votes UI', e); }
+      });
+
+    // vote buttons handled via handleVote helper (listeners registered earlier)
+
+    // PK viewer reaction buttons (PK-specific emoji channel)
+    document.querySelectorAll('.pk-react-btn').forEach(b => {
+      const type = b.dataset.type;
+      b.addEventListener('click', () => {
+        if (!combinedRoom) return;
+        socket.emit('pk-emoji', { roomId: combinedRoom, type });
+        spawnEmoji(type, { size: 20 + Math.random() * 18 });
+      });
+    });
+
+    // emoji animation helper (copied/adapted)
+    function spawnEmoji(type, opts = {}) {
+      const layer = document.getElementById('reactionLayer');
+      if (!layer) return;
+      const emoji = document.createElement('div');
+      emoji.className = 'emoji-particle';
+      emoji.textContent = (type === 'heart') ? '💖' : (type === 'laugh') ? '😄' : (type === 'cry') ? '😢' : '👍';
+      const vid = document.getElementById('videoA') || document.getElementById('videoB');
+      let startX, startY;
+      if (opts.x !== undefined) {
+        startX = opts.x;
+        startY = opts.y !== undefined ? opts.y : (window.innerHeight * 0.6);
+      } else if (vid && typeof vid.getBoundingClientRect === 'function') {
+        const r = vid.getBoundingClientRect();
+        startX = Math.round(r.right - 36 + (Math.random() - 0.5) * 18);
+        startY = Math.round(r.bottom - 18 + (Math.random() - 0.5) * 6);
+      } else {
+        startX = (window.innerWidth * 0.85 + (Math.random() - 0.5) * 120);
+        startY = (window.innerHeight * 0.6 + (Math.random() - 0.5) * 80);
+      }
+      emoji.style.position = 'fixed';
+      emoji.style.left = startX + 'px';
+      emoji.style.top = startY + 'px';
+      emoji.style.fontSize = (opts.size || (18 + Math.random() * 18)) + 'px';
+      emoji.style.pointerEvents = 'none';
+      emoji.style.opacity = '1';
+      emoji.style.transform = 'translateY(0) scale(1)';
+      emoji.style.transition = 'transform 1200ms cubic-bezier(.2,.9,.2,1), opacity 1200ms linear';
+      layer.appendChild(emoji);
+      requestAnimationFrame(() => {
+        const dx = (Math.random() - 0.5) * 40;
+        const dy = - (220 + Math.random() * 160);
+        const rotate = (Math.random() - 0.5) * 40;
+        emoji.style.transform = `translate(${dx}px, ${dy}px) rotate(${rotate}deg) scale(1.05)`;
+        emoji.style.opacity = '0';
+      });
+      setTimeout(() => { try { layer.removeChild(emoji); } catch (e) {} }, 1400);
+    }
+
+  // show emoji when server broadcasts PK emoji stream
+  socket.on('pk-emoji', data => { spawnEmoji(data.type, { size: 18 + Math.random() * 22 }); });
+
+    socket.on('candidate', (id, candidate) => {
+      try {
+        const pc = peers[id];
+        if (pc) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(()=>{});
+        else { pendingCandidates[id] = pendingCandidates[id] || []; pendingCandidates[id].push(candidate); }
+      } catch (e) { console.warn('candidate handling failed', e); }
+    });
+
+    socket.on('bye', id => {
+      try {
+        if (peers[id]) { peers[id].close(); delete peers[id]; }
+        if (assigned.slotA === id) { document.getElementById('videoA').srcObject = null; assigned.slotA = null; }
+        if (assigned.slotB === id) { document.getElementById('videoB').srcObject = null; assigned.slotB = null; }
+      } catch (e) {}
+    });
+
+    // --- chat features (reused from viewer.html) ---
+    let username = '匿名用戶';
+    let avatar = '/uploads/default_avatar.png';
+    let userId = null;
+
+    function colorForId(id) {
+      if (!id) id = 'anon';
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = (h << 5) - h + id.charCodeAt(i) | 0;
+      const hue = Math.abs(h) % 360;
+      const sat = 68;
+      const light = 58;
+      return `hsl(${hue} ${sat}% ${light}%)`;
+    }
+
+    socket.on('chat-message', data => {
+      const box = document.getElementById('messages');
+      const msg = document.createElement('div');
+      msg.classList.add('message');
+      const displayName = data.isHost ? `👑 ${data.user}` : data.user;
+      const idForColor = data.userId || data.sender || data.user || 'anon';
+      const nameColor = colorForId(String(idForColor));
+      msg.innerHTML = `<img src="${data.avatar}" alt="avatar" style="width:36px;height:36px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">` +
+                      `<div class="text" style="display:inline-block;vertical-align:middle;"><strong style="color:${nameColor}">${displayName}</strong><br>${data.text}</div>`;
+      box.appendChild(msg);
+      while (box.children.length > 50) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+    });
+
+    socket.on('system-message', text => {
+      const box = document.getElementById('messages');
+      const sys = document.createElement('div');
+      sys.classList.add('system-message');
+      sys.textContent = text;
+      box.appendChild(sys);
+      while (box.children.length > 50) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+    });
+
+    // send chat
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      socket.emit('chat-message', { roomId: combinedRoom, user: username, userId, text, avatar });
+      input.value = '';
+    }
+
+    const sendBtn = document.getElementById('sendBtn');
+    document.getElementById('sendBtn').onclick = sendMessage;
+    document.getElementById('chatInput').addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+
+    // enable send button after profile fetch
+    sendBtn.disabled = true;
+    fetch('/api/profile', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) { username = data.username; avatar = data.avatar || avatar; userId = data.id || null; }
+      })
+      .catch(() => {})
+      .finally(() => { sendBtn.disabled = false; });
+
+    // show stream info if available
+    if (combinedRoom) {
+      fetch(`/api/stream-info?room=${combinedRoom}`).then(r => r.json()).then(info => {
+        if (info && info.title) document.getElementById('info').textContent = `${info.title} - 房間：${combinedRoom}`;
+      }).catch(()=>{});
+    }
+  </script>
+</body>
+</html>

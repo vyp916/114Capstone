@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>觀看直播</title>
+  <link rel="stylesheet" href="style-modern.css">
+
+</head>
+<body>
+  <div class="viewer-layout">
+    <div class="viewer-area">
+      <div class="viewer-container">
+        <h2 id="streamTitle">載入中...</h2>
+        <p id="streamDesc"></p>
+          <video id="video" autoplay playsinline controls muted></video>
+          <button id="unmuteBtn" style="position:absolute; right:16px; bottom:16px; z-index:999; padding:8px 10px; border-radius:6px; background:#222;color:#fff;border:none;display:none;">解除靜音 🔊</button>
+          <!-- reactions (moved to PK pages) -->
+        <p id="roomInfo"></p>
+        <a href="index.html">返回首頁</a>
+      </div>
+    </div>
+
+    <aside class="chat-area">
+      <div id="chatContainer">
+        <div id="messages"></div>
+        <div class="chat-input-row">
+          <input id="chatInput" placeholder="輸入訊息...">
+          <button id="sendBtn" disabled>送出</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    // debug helpers: connection state
+    socket.on('connect', () => console.log('[viewer] socket connected', socket.id));
+    socket.on('connect_error', (err) => console.warn('[viewer] socket connect_error', err && err.message));
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room');
+  let username = '匿名用戶';
+  let avatar = '/uploads/default_avatar.png';
+  let userId = null; // deterministic id for coloring chat names (from /api/profile)
+
+    socket.emit('join-room', roomId);
+    // request watcher role; also retry when a broadcaster appears
+    socket.emit('watcher');
+    socket.on('broadcaster', () => socket.emit('watcher'));
+
+  // 接收訊息 （使用 userId 產生 identity color）
+    // deterministic pastel-ish color generator based on userId (or username fallback)
+    function colorForId(id) {
+      if (!id) id = 'anon';
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = (h << 5) - h + id.charCodeAt(i) | 0;
+      const hue = Math.abs(h) % 360;
+      const sat = 68;
+      const light = 58;
+      return `hsl(${hue} ${sat}% ${light}%)`;
+    }
+
+    socket.on('chat-message', data => {
+      const box = document.getElementById('messages');
+      const msg = document.createElement('div');
+      msg.classList.add('message');
+      const displayName = data.isHost ? `👑 ${data.user}` : data.user;
+  const idForColor = data.userId || data.sender || data.user || 'anon';
+      const nameColor = colorForId(String(idForColor));
+      msg.innerHTML = `<img src="${data.avatar}" alt="avatar">
+                      <div class="text"><strong style="color:${nameColor}">${displayName}</strong><br>${data.text}</div>`;
+      box.appendChild(msg);
+      // keep only last 20 messages
+      while (box.children.length > 20) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+    });
+
+  // Signaling events (kept silent in production)
+  socket.on('offer', () => {});
+  socket.on('answer', () => {});
+  socket.on('candidate', () => {});
+
+    // 系統訊息
+    socket.on('system-message', text => {
+      const box = document.getElementById('messages');
+      const sys = document.createElement('div');
+      sys.classList.add('system-message');
+      sys.textContent = text;
+      box.appendChild(sys);
+      // keep only last 20 messages
+      while (box.children.length > 20) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+    });
+
+    // If server tells this viewer the room has merged for PK, redirect to pk-viewer
+    socket.on('pk-merged', ({ combinedRoom, leftOwner, rightOwner }) => {
+      try {
+        console.log('[viewer] received pk-merged', combinedRoom, leftOwner, rightOwner);
+        if (!combinedRoom) return;
+        const qs = new URLSearchParams({ room: combinedRoom });
+        if (leftOwner) qs.set('leftOwner', String(leftOwner));
+        if (rightOwner) qs.set('rightOwner', String(rightOwner));
+        window.location.href = `/pk-viewer.html?${qs.toString()}`;
+      } catch (e) { console.warn('pk-merged redirect failed', e); }
+    });
+
+    // reactions removed from normal viewer; PK pages now provide emoji UI
+
+  const sendBtn = document.getElementById('sendBtn');
+    // 傳送訊息功能
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      socket.emit('chat-message', { roomId, user: username, userId, text, avatar });
+      input.value = '';
+    }
+
+    // 綁定送出按鈕
+    document.getElementById('sendBtn').onclick = sendMessage;
+    
+    // 綁定 Enter 鍵
+    document.getElementById('chatInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault(); // 防止換行
+        sendMessage();
+      }
+    });
+
+
+
+    // 先禁用送出按鈕，等 profile 載入或確認後再啟用（避免還沒載入 username 就送出訊息）
+    sendBtn.disabled = true;
+    fetch('/api/profile', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          username = data.username;
+          avatar = data.avatar || '/uploads/default_avatar.png';
+          userId = data.id || null;
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        // 無論是否登入，都允許使用者送出（若未登入則仍為匿名）
+        sendBtn.disabled = false;
+      });
+
+
+    // 顯示直播資訊
+    fetch(`/api/stream-info?room=${roomId}`)
+      .then(res => res.json())
+      .then(info => {
+        document.getElementById('streamTitle').textContent = info.title;
+        document.getElementById('streamDesc').textContent = info.description;
+        document.getElementById('roomInfo').textContent = `房間號：${roomId} | 主播：${info.username}`;
+    });
+
+      // reactions removed from normal viewer; use PK pages for emoji interactions
+
+  // 觀看端 WebRTC - support multiple broadcasters (map by id) and handle duplicate offers
+  const video = document.getElementById('video');
+  const peers = {}; // map of RTCPeerConnection by broadcaster socket id
+  const pendingCandidates = {}; // store candidates that arrive before pc is created
+  socket.emit("watcher");
+
+    socket.on("offer", async (id, description) => {
+      try {
+        // if an existing pc exists for this id, close it to avoid state conflicts
+        if (peers[id]) {
+          try { peers[id].close(); } catch (e) {}
+          delete peers[id];
+          // clear video preview if it was attached to old pc
+          try { if (video.srcObject) video.srcObject = null; } catch (e) {}
+        }
+
+        const pc = new RTCPeerConnection();
+        peers[id] = pc;
+
+        pc.ontrack = event => {
+          try {
+            video.muted = true;
+            video.srcObject = event.streams[0];
+            video.play().catch(() => {});
+            const hasAudio = event.streams[0] && event.streams[0].getAudioTracks && event.streams[0].getAudioTracks().length > 0;
+            const unmuteBtn = document.getElementById('unmuteBtn');
+            if (hasAudio && unmuteBtn) {
+              unmuteBtn.style.display = 'block';
+              unmuteBtn.onclick = () => { try { video.muted = false; } catch (e) {} ; unmuteBtn.style.display = 'none'; };
+            }
+          } catch (e) {}
+        };
+
+        pc.onicecandidate = evt => {
+          if (evt.candidate) socket.emit('candidate', id, evt.candidate);
+        };
+
+        // if candidates arrived earlier, add them now
+        if (pendingCandidates[id] && pendingCandidates[id].length) {
+          pendingCandidates[id].forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(()=>{}));
+          delete pendingCandidates[id];
+        }
+
+        await pc.setRemoteDescription(description);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+  socket.emit('answer', id, pc.localDescription);
+      } catch (err) {
+        console.error('Error handling offer:', err);
+      }
+    });
+
+    socket.on('candidate', (id, candidate) => {
+      const pc = peers[id];
+      if (pc) {
+        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(()=>{});
+      } else {
+        pendingCandidates[id] = pendingCandidates[id] || [];
+        pendingCandidates[id].push(candidate);
+      }
+    });
+  </script>
+</body>
+</html>

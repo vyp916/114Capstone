@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>Live Stream Broadcaster</title>
+  <link rel="stylesheet" href="style-modern.css">
+
+  <style>
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .emoji-particle { will-change: transform, opacity; z-index: 99999; pointer-events: none; }
+    #reactionValve { user-select: none; }
+  </style>
+
+</head>
+<body>
+  <h1>📡 Broadcast Panel</h1>
+
+  <!-- 🆕 房間與狀態資訊 -->
+  <div id="infoBar" style="text-align:center;">
+    <p>房間號：<span id="roomCode">---</span></p>
+    <button id="shareBtn">📤 分享連結</button>
+    <p>👥 在線人數：<span id="viewerCount">0</span>
+      <span id="topReaction" style="margin-left:12px; font-size:14px;"> </span>
+      <span id="reactionPulse" aria-hidden="true" style="display:inline-block;width:10px;height:10px;background:#ff4081;border-radius:50%;margin-left:8px;opacity:0;transform:scale(0.8);transition:opacity 220ms, transform 220ms;"></span>
+    </p>
+  </div>
+
+  <div style="text-align:center;margin-top:10px;">
+    <input type="file" id="coverUpload" accept="image/*">
+    <button id="uploadBtn">📷 上傳封面</button>
+    <div style="margin-top:8px;">
+      <input id="pkTarget" placeholder="輸入對方房間號發起 PK" style="padding:6px;border-radius:4px;border:1px solid #ccc;">
+      <button id="pkSendBtn" style="margin-left:6px;padding:6px 8px;">發起 PK</button>
+      <label style="margin-left:12px;display:inline-flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="pkAcceptToggle" checked> 接受 PK
+      </label>
+    </div>
+  </div>
+
+
+  <!-- 直播畫面與聊天室 -->
+  <div class="viewer-layout">
+    <div class="viewer-area">
+      <video id="video" autoplay muted playsinline></video>
+    </div>
+    
+    <!-- chat for broadcaster -->
+    <aside class="chat-area">
+      <div id="chatContainer">
+        <div id="messages"></div>
+        <div class="chat-input-row">
+          <input id="chatInput" placeholder="輸入訊息...">
+          <button id="sendBtn" disabled>送出</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <button id="endBtn" style="background:#c00;color:#fff;border:none;padding:10px 16px;border-radius:6px;margin-top:10px;">
+  🛑 結束直播
+  </button>
+
+  <!-- reactions moved to PK broadcaster page; non-PK broadcaster does not show emoji UI -->
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="filters.js"></script>
+  <script>
+    
+    const socket = io();
+    const peerConnections = {};
+    const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    const video = document.getElementById("video");
+
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get("room");
+
+    // 驗證是否為房主
+    fetch(`/api/verify-broadcaster?room=${roomId}`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(result => {
+        if (!result.valid) {
+          document.body.innerHTML = `
+            <div style="text-align:center;margin-top:100px;">
+              <h1>❌ 404 Not Found</h1>
+              <p>${result.reason || '無效房間'}</p>
+              <p>3 秒後返回首頁...</p>
+            </div>`;
+          setTimeout(() => (window.location.href = '/index.html'), 3000);
+          throw new Error("Unauthorized");
+        }
+      })
+      .catch(() => {});
+
+    document.getElementById("roomCode").textContent = roomId;
+
+    // 在線人數更新事件
+    socket.emit("broadcaster-join", roomId);
+    // join chat room as host
+    socket.emit('join-room', roomId);
+    // throttle viewer count UI updates to avoid rapid DOM churn (max once per 2s)
+    let _lastViewerUpdate = 0;
+    let _pendingViewerCount = null;
+    function _applyViewerCount(count) {
+      const el = document.getElementById('viewerCount');
+      if (!el) return;
+      el.textContent = count;
+    }
+    function updateViewerCountThrottled(count) {
+      const now = Date.now();
+      const el = document.getElementById('viewerCount');
+      if (!el) return;
+      const gap = 2000; // ms
+      if (now - _lastViewerUpdate >= gap) {
+        _applyViewerCount(count);
+        _lastViewerUpdate = now;
+      } else {
+        _pendingViewerCount = count;
+        if (!updateViewerCountThrottled._timer) {
+          const wait = gap - (now - _lastViewerUpdate);
+          updateViewerCountThrottled._timer = setTimeout(() => {
+            _applyViewerCount(_pendingViewerCount);
+            _lastViewerUpdate = Date.now();
+            _pendingViewerCount = null;
+            updateViewerCountThrottled._timer = null;
+          }, wait);
+        }
+      }
+    }
+    socket.on("viewer-count", count => {
+      updateViewerCountThrottled(count);
+    });
+
+    // update top reaction UI when server pushes stats
+    socket.on('reaction-stats', stats => {
+      const el = document.getElementById('topReaction');
+      if (!el) return;
+      if (!stats || !stats.topType) {
+        el.textContent = '';
+        return;
+      }
+      const emojiMap = { heart: '💖', laugh: '😄', cry: '😢', like: '👍' };
+      const e = emojiMap[stats.topType] || stats.topType;
+      el.textContent = `${e} ${stats.topCount}`;
+    });
+
+    // reactions moved to PK pages; non-PK broadcaster will not show spawned emoji here
+
+    // PK UI handlers
+    const pkSendBtn = document.getElementById('pkSendBtn');
+    const pkTargetInput = document.getElementById('pkTarget');
+    const pkToggle = document.getElementById('pkAcceptToggle');
+
+    pkToggle.addEventListener('change', () => {
+      socket.emit('pk-toggle', { roomId, enabled: pkToggle.checked });
+    });
+
+    pkSendBtn.onclick = () => {
+      const target = (pkTargetInput.value || '').trim();
+      if (!target) return alert('請輸入目標房間號');
+      socket.emit('pk-request', { fromRoom: roomId, targetRoom: target });
+      // show pending panel
+      showPkPending(target);
+      pkSendBtn.disabled = true;
+      setTimeout(() => { pkSendBtn.disabled = false; }, 3000);
+    };
+
+    // incoming PK invite
+    socket.on('pk-invite', ({ fromRoom, fromSocket }) => {
+      // show a non-blocking modal dialog so it appears even if page didn't get recent user focus
+      try {
+        // avoid creating multiple modals
+        if (document.getElementById('__pk_invite_modal')) return;
+        const modal = document.createElement('div');
+        modal.id = '__pk_invite_modal';
+        modal.style.position = 'fixed';
+        modal.style.left = '50%';
+        modal.style.top = '40%';
+        modal.style.transform = 'translate(-50%, -50%)';
+        modal.style.background = '#fff';
+        modal.style.color = '#000';
+        modal.style.padding = '14px';
+        modal.style.borderRadius = '8px';
+        modal.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+        modal.style.zIndex = 20000;
+        modal.innerHTML = `<div style="font-weight:600;margin-bottom:8px;">房間 ${fromRoom} 邀請您 PK</div>
+          <div style="margin-bottom:10px;">是否接受對方挑戰，比比人氣？</div>
+          <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;">
+            <button id="__pk_reject" style="padding:6px 10px;border-radius:6px;">拒絕</button>
+            <button id="__pk_accept" style="padding:6px 10px;border-radius:6px;background:#2196F3;color:#fff;border:none;">接受</button>
+          </div>`;
+        document.body.appendChild(modal);
+        const clean = () => { try { modal.remove(); } catch (e) {} };
+        document.getElementById('__pk_accept').onclick = () => { socket.emit('pk-response', { fromRoom, targetRoom: roomId, accept: true }); clean(); };
+        document.getElementById('__pk_reject').onclick = () => { socket.emit('pk-response', { fromRoom, targetRoom: roomId, accept: false }); clean(); };
+        // auto-dismiss after 20s
+        setTimeout(() => { try { if (document.getElementById('__pk_invite_modal')) clean(); } catch (e) {} }, 20000);
+      } catch (e) {
+        // if modal creation fails, auto-decline and notify requester
+        try { socket.emit('pk-response', { fromRoom, targetRoom: roomId, accept: false }); } catch (ee) {}
+      }
+    });
+
+    // show a small pending panel for the PK requester
+    function showPkPending(targetRoom) {
+      // remove existing
+      const existing = document.getElementById('__pk_pending');
+      if (existing) existing.remove();
+      const p = document.createElement('div');
+      p.id = '__pk_pending';
+      p.style.position = 'fixed';
+      p.style.right = '12px';
+      p.style.top = '12px';
+      p.style.zIndex = 20000;
+      p.style.background = 'rgba(0,0,0,0.75)';
+      p.style.color = '#fff';
+      p.style.padding = '8px 10px';
+      p.style.borderRadius = '8px';
+      p.style.boxShadow = '0 6px 18px rgba(0,0,0,0.4)';
+      p.innerHTML = `<div style="display:flex;gap:8px;align-items:center;"><div>已向 ${targetRoom} 發送 PK 邀請，等待回覆…</div><button id="__pk_cancel" style="margin-left:8px;padding:6px;border-radius:6px;">取消</button></div>`;
+      document.body.appendChild(p);
+      document.getElementById('__pk_cancel').onclick = () => {
+        try { p.remove(); } catch (e) {}
+        try { socket.emit('pk-response', { fromRoom: roomId, targetRoom: targetRoom, accept: false, cancelled: true }); } catch (e) {}
+      };
+      // auto-dismiss after 20s (if still there)
+      setTimeout(() => { try { if (document.getElementById('__pk_pending')) document.getElementById('__pk_pending').remove(); } catch (e) {} }, 20000);
+    }
+
+    // handle pk-response sent back to the requester
+    socket.on('pk-response', ({ fromRoom, targetRoom, accept, responderSocket }) => {
+      try {
+        // if this client is the one who initiated (roomId === fromRoom)
+        if (roomId === fromRoom) {
+          const el = document.getElementById('__pk_pending');
+          if (el) el.remove();
+          const toast = document.createElement('div');
+          toast.style.position = 'fixed';
+          toast.style.right = '12px';
+          toast.style.top = '12px';
+          toast.style.zIndex = 20001;
+          toast.style.background = accept ? 'linear-gradient(90deg,#4caf50,#66bb6a)' : 'linear-gradient(90deg,#f44336,#ef5350)';
+          toast.style.color = '#fff';
+          toast.style.padding = '8px 12px';
+          toast.style.borderRadius = '8px';
+          toast.style.boxShadow = '0 6px 18px rgba(0,0,0,0.4)';
+          toast.textContent = accept ? '對方已接受 PK，正在準備...' : '對方已拒絕 PK';
+          document.body.appendChild(toast);
+          setTimeout(() => { try { toast.remove(); } catch (e) {} }, 4000);
+        }
+      } catch (e) {}
+    });
+
+    // handle pk-start: both broadcasters should redirect to PK page
+    socket.on('pk-start', ({ combinedRoom, leftOwner, rightOwner }) => {
+      // navigate to pk-broadcaster page; include left/right owner ids so page knows which side is which
+      try {
+        const qs = new URLSearchParams({ room: combinedRoom });
+        if (leftOwner) qs.set('leftOwner', String(leftOwner));
+        if (rightOwner) qs.set('rightOwner', String(rightOwner));
+        window.location.href = `/pk-broadcaster.html?${qs.toString()}`;
+      } catch (e) {
+        // fallback
+        window.location.href = `/pk-broadcaster.html?room=${encodeURIComponent(combinedRoom)}`;
+      }
+    });
+
+    // if viewers in this room need to be merged, server emits pk-merged (handled by viewers)
+
+    // broadcaster spawn emoji helper removed from non-PK page (moved to PK page)
+
+    // 分享功能
+    document.getElementById("shareBtn").onclick = () => {
+      const shareUrl = `${window.location.origin}/viewer.html?room=${roomId}`;
+      navigator.clipboard.writeText(shareUrl);
+      alert(`📎 已複製分享連結：\n${shareUrl}`);
+    };
+
+    // 啟動攝影機與麥克風
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(async stream => {
+  // camera opened
+
+        // Create a hidden source video element that plays the raw camera stream.
+        // FilterManager needs a video element that contains the RAW frames to draw into canvas.
+        const sourceVideo = document.createElement('video');
+        sourceVideo.autoplay = true;
+        sourceVideo.muted = true;
+        sourceVideo.playsInline = true;
+        sourceVideo.style.display = 'none';
+        document.body.appendChild(sourceVideo);
+        sourceVideo.srcObject = stream;
+        // Don't call sourceVideo.play() here — MediaPipe Camera (if used) may re-load the video
+        // which can abort an in-progress play() request and cause an AbortError. Let the
+        // Camera helper manage playback timing. If you need an explicit play, call it
+        // after Camera is started or handle AbortError specifically.
+
+    // 建立 FilterManager：將原始攝影機流作為來源，產生處理後的視訊（canvas）
+  const filterMgr = new FilterManager(sourceVideo, stream, { width: 1280, height: 720, fps: 25, autoFace: true });
+
+        // preview broadcaster: 顯示處理後的視訊（canvas stream）
+        const processedStream = filterMgr.getProcessedStream();
+        const previewStream = new MediaStream();
+
+        // helper: wait for processedStream to expose a video track (polling)
+        const waitForProcessedVideo = async (timeout = 5000) => {
+          const start = Date.now();
+          while (Date.now() - start < timeout) {
+            const t = processedStream.getVideoTracks();
+            if (t && t.length) return t[0];
+            await new Promise(r => setTimeout(r, 100));
+          }
+          return null;
+        };
+
+        const initialTrack = await waitForProcessedVideo(5000);
+        if (initialTrack) previewStream.addTrack(initialTrack);
+        else console.warn('processed video track not ready');
+
+        // show preview (processed)
+        video.srcObject = previewStream;
+        video.play().catch(()=>{});
+
+        // announce broadcaster
+        socket.emit("broadcaster");
+
+        socket.on("watcher", async id => {
+          const pc = new RTCPeerConnection(config);
+          peerConnections[id] = pc;
+          let currentProcessed = processedStream.getVideoTracks()[0];
+
+          // add original audio tracks from camera
+          stream.getAudioTracks().forEach(a => pc.addTrack(a, stream));
+
+          pc.onicecandidate = event => {
+            if (event.candidate) socket.emit("candidate", id, event.candidate);
+          };
+
+          // helper: wait briefly for processedStream to expose a video track
+          const waitForTrack = async (timeout = 3000) => {
+            const start = Date.now();
+            while (Date.now() - start < timeout) {
+              const t = processedStream.getVideoTracks();
+              if (t && t.length) return t[0];
+              await new Promise(r => setTimeout(r, 100));
+            }
+            return null;
+          };
+
+          // try immediate, else wait a short time
+          currentProcessed = currentProcessed || await waitForTrack(3000);
+          if (currentProcessed) {
+            try { pc.addTrack(currentProcessed, processedStream); } catch (e) { console.warn('failed to add processed track'); }
+          } else {
+            console.warn('no processed video track for watcher', id);
+          }
+
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('offer', id, pc.localDescription);
+          } catch (e) {
+            console.error('failed to create/send offer to', id);
+          }
+        });
+
+        socket.on("answer", (id, description) => peerConnections[id].setRemoteDescription(description));
+        socket.on("candidate", (id, candidate) => peerConnections[id].addIceCandidate(new RTCIceCandidate(candidate)));
+        socket.on("bye", id => {
+          if (peerConnections[id]) {
+            peerConnections[id].close();
+            delete peerConnections[id];
+          }
+        });
+      })
+      .catch(err => {
+        console.error("🚫 鏡頭開啟失敗：", err);
+        alert("請允許相機與麥克風權限，否則無法開播。");
+      });
+
+      // === 每 10 秒送心跳 ===
+    setInterval(() => {
+      fetch('/api/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ roomId })
+      });
+    }, 10000);
+
+    // === 結束直播 ===
+    document.getElementById('endBtn').onclick = async () => {
+      if (confirm("確定要結束直播嗎？")) {
+        await fetch('/api/end-stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ roomId })
+        });
+
+        // 關閉攝影機
+        if (video.srcObject) {
+          video.srcObject.getTracks().forEach(track => track.stop());
+        }
+
+        alert("直播已結束！");
+        window.location.href = '/index.html';
+      }
+    };
+
+    // 上傳封面
+    document.getElementById('uploadBtn').onclick = async () => {
+      const fileInput = document.getElementById('coverUpload');
+      if (!fileInput.files.length) return alert("請選擇圖片");
+      if (!roomId) return alert("⚠️ 錯誤：房間號未定義，請重新整理頁面。");
+
+  const formData = new FormData();
+  // IMPORTANT: append roomId first so multer can read it when handling the file
+  formData.append('roomId', roomId); // ✅ 關鍵：一定要傳房間號！
+  formData.append('cover', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/api/upload-cover', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        const data = await res.json();
+        alert(data.message);
+      } catch (err) {
+        console.error("❌ 上傳失敗：", err);
+      }
+    };
+
+    // --- broadcaster chat logic ---
+    const sendBtn = document.getElementById('sendBtn');
+  let hostName = '主播';  // 移除 (HOST) 前綴，改用表情符號
+  let hostAvatar = '/uploads/default_avatar.png';
+  let hostId = null; // broadcaster user id for chat color
+
+    // get broadcaster profile
+    fetch('/api/profile', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          hostName = data.username;  // 不加 (HOST) 前綴
+          hostAvatar = data.avatar || hostAvatar;
+          hostId = data.id || null;
+        }
+      })
+      .catch(() => {})
+      .finally(() => { sendBtn.disabled = false; });
+
+    // deterministic pastel-ish color generator based on userId (or username fallback)
+    function colorForId(id) {
+      if (!id) id = 'anon';
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = (h << 5) - h + id.charCodeAt(i) | 0;
+      const hue = Math.abs(h) % 360;
+      const sat = 68;
+      const light = 58;
+      return `hsl(${hue} ${sat}% ${light}%)`;
+    }
+
+    socket.on('chat-message', data => {
+      const box = document.getElementById('messages');
+      const msg = document.createElement('div');
+      msg.classList.add('message');
+      const displayName = data.isHost ? `👑 ${data.user}` : data.user;
+      const idForColor = data.userId || data.user || 'anon';
+      const nameColor = colorForId(String(idForColor));
+      msg.innerHTML = `<img src="${data.avatar}" alt="avatar">
+                      <div class="text"><strong style="color:${nameColor}">${displayName}</strong><br>${data.text}</div>`;
+      box.appendChild(msg);
+      while (box.children.length > 20) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+    });
+
+    socket.on('system-message', text => {
+      const box = document.getElementById('messages');
+      const sys = document.createElement('div');
+      sys.classList.add('system-message');
+      sys.textContent = text;
+      box.appendChild(sys);
+      while (box.children.length > 20) box.removeChild(box.firstChild);
+      box.scrollTop = box.scrollHeight;
+    });
+
+    // 傳送訊息功能
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      socket.emit('chat-message', { roomId, user: hostName, userId: hostId, text, avatar: hostAvatar, isHost: true });
+      input.value = '';
+    }
+
+    // 綁定送出按鈕
+    document.getElementById('sendBtn').onclick = sendMessage;
+    
+    // 綁定 Enter 鍵
+    document.getElementById('chatInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault(); // 防止換行
+        sendMessage();
+      }
+    });
+
+
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Platform</title>
+  <link rel="stylesheet" href="style-modern.css">
+
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- 左側選單 -->
+    <aside class="sidebar">
+      <div class="profile-section">
+        <img id="avatar" src="https://cdn-icons-png.flaticon.com/512/1946/1946429.png" alt="Avatar">
+        <h3 id="username">使用者名稱</h3>
+        <button id="editProfile">編輯個人資料</button>
+      </div>
+      <hr />
+      <button id="startLive">🎥 開始直播</button>
+      <button id="logout">🚪 登出</button>
+    </aside>
+
+    <!-- 編輯個人資料彈窗 -->
+    <div id="profileModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>編輯個人資料</h2>
+        <form id="profileForm">
+          <label>使用者名稱</label><br>
+          <input type="text" name="username" placeholder="新的使用者名稱" required><br><br>
+
+          <label>性別</label><br>
+          <select name="gender" id="profileGender">
+            <option value="不透露">不透露</option>
+            <option value="男">男</option>
+            <option value="女">女</option>
+            <option value="其他">其他</option>
+          </select><br><br>
+
+          <label>年齡</label><br>
+          <input type="number" name="age" id="profileAge" min="0" max="120" placeholder="例如：25"><br><br>
+
+          <label>頭像（方形 1:1）</label><br>
+          <input type="file" id="profileAvatarInput" accept="image/*"><br>
+          <div style="text-align:center;margin-top:8px;">
+            <img id="profileAvatarPreview" src="/uploads/default_avatar.png" alt="avatar" style="width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid #ccc;display:block;margin:8px auto;">
+          </div>
+
+          <div style="margin-top:12px;">
+            <button type="submit">儲存變更</button>
+            <button type="button" id="closeProfile">取消</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const profileModal = document.getElementById('profileModal');
+      document.getElementById('editProfile').onclick = () => profileModal.classList.remove('hidden');
+      document.getElementById('closeProfile').onclick = () => profileModal.classList.add('hidden');
+      // NOTE: profile form submit handler is attached later after fetching profile to avoid duplicate listeners.
+    </script>
+
+    <!-- 主視區 -->
+    <main class="main-content">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="輸入房間號以加入直播">
+        <button id="searchBtn">搜尋</button>
+      </div>
+      <h2>
+        🔥 熱門直播
+        <button id="refreshBtn" style="margin-left:10px;padding:5px 10px;border:none;background:#2196F3;color:white;border-radius:4px;cursor:pointer;transition:all 0.3s ease;">
+          🔄 重新整理
+        </button>
+      </h2>
+      <div id="streamList" class="stream-grid">
+        <p>目前沒有正在進行的直播</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- 直播設定彈窗 -->
+  <div id="liveModal" class="modal hidden">
+    <div class="modal-content large">
+      <h2>設定直播資訊</h2>
+      <form id="liveForm">
+        <label>直播間名稱</label><br>
+        <input type="text" name="title" required><br><br>
+        <label>直播簡介</label><br>
+        <textarea name="description" placeholder="介紹一下你的直播～"></textarea><br><br>
+        <label>Hashtag（請以#開頭，空格分隔）</label><br>
+        <input type="text" name="hashtags" placeholder="#音樂 #教學"><br><br>
+        <label>封面圖</label><br>
+        <input type="file" id="coverInput"><br><br>
+        <button type="submit">開始直播</button>
+        <button type="button" id="closeModal">取消</button>
+      </form>
+    </div>
+  </div>
+
+
+  <script>
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- 初始設定 ---
+      const socket = io();  // 初始化 Socket.IO 連接
+      const usernameEl = document.getElementById('username');
+      const liveModal = document.getElementById('liveModal');
+      const coverInput = document.getElementById('coverInput');
+
+      // 取得個人資料
+      fetch('/api/profile', {
+        method: 'GET',
+        credentials: 'include'  // ✅ 加這行！
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('unauthorized');
+          return res.json();
+        })
+        .then(user => {
+          usernameEl.textContent = user.username;
+          // 左側頭像與名稱
+          const avatarImg = document.getElementById('avatar');
+          avatarImg.src = (user.avatar || '/uploads/default_avatar.png') + '?t=' + Date.now();
+
+          // 預填 profile modal 欄位
+          const profileNameInput = document.querySelector('#profileForm input[name="username"]');
+          const profileGender = document.getElementById('profileGender');
+          const profileAvatarPreview = document.getElementById('profileAvatarPreview');
+          const profileAvatarInput = document.getElementById('profileAvatarInput');
+
+          if (profileNameInput) profileNameInput.value = user.username || '';
+          if (profileGender) profileGender.value = user.gender || '不透露';
+          const profileAgeInput = document.getElementById('profileAge');
+          if (profileAgeInput) profileAgeInput.value = (user.age !== undefined && user.age !== null) ? user.age : '';
+          if (profileAvatarPreview) profileAvatarPreview.src = user.avatar || '/uploads/default_avatar.png';
+
+          // 頭像預覽
+          if (profileAvatarInput) {
+            profileAvatarInput.addEventListener('change', () => {
+              const f = profileAvatarInput.files[0];
+              if (!f) {
+                profileAvatarPreview.src = user.avatar || '/uploads/default_avatar.png';
+                return;
+              }
+              profileAvatarPreview.src = URL.createObjectURL(f);
+            });
+          }
+
+          // Profile 表單送出：先更新 username/gender，然後（若有）上傳頭像
+          const profileForm = document.getElementById('profileForm');
+          if (profileForm) {
+            profileForm.addEventListener('submit', async ev => {
+              ev.preventDefault();
+              const values = Object.fromEntries(new FormData(profileForm));
+              try {
+                const res = await fetch('/api/update-profile', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ username: values.username, gender: values.gender, age: values.age || null })
+                });
+                const resp = await res.json();
+                alert(resp.message || '已更新個人資料');
+
+                // 若有新頭像則上傳
+                if (profileAvatarInput && profileAvatarInput.files && profileAvatarInput.files.length > 0) {
+                  const fd = new FormData();
+                  fd.append('avatar', profileAvatarInput.files[0]);
+                  try {
+                    const up = await fetch('/api/upload-avatar', {
+                      method: 'POST',
+                      credentials: 'include',
+                      body: fd
+                    });
+                    const upJson = await up.json();
+                    if (!up.ok) console.warn('上傳頭像失敗：', upJson);
+                  } catch (err) {
+                    console.error('上傳頭像錯誤：', err);
+                  }
+                }
+
+                // 更新左側顯示並關閉 modal
+                // 重新取得 profile 並更新 UI
+                const fresh = await fetch('/api/profile', { credentials: 'include' });
+                if (fresh.ok) {
+                  const newUser = await fresh.json();
+                  usernameEl.textContent = newUser.username;
+                  // cache-bust to ensure new avatar is fetched
+                  avatarImg.src = (newUser.avatar || '/uploads/default_avatar.png') + '?t=' + Date.now();
+                }
+
+                document.getElementById('profileModal').classList.add('hidden');
+              } catch (err) {
+                console.error('更新個人資料失敗：', err);
+                alert('更新失敗，請稍後再試');
+              }
+            });
+          }
+        })
+        .catch(() => {
+          location.href = '/login.html';
+        });
+
+
+        // ========== 熱門直播清單載入 + 自動刷新 ==========
+        async function loadStreams(isManualRefresh = false) {
+          const refreshBtn = document.getElementById('refreshBtn');
+          const streamList = document.getElementById('streamList');
+          
+          if (isManualRefresh) {
+            refreshBtn.classList.add('refreshing');
+            refreshBtn.disabled = true;
+            streamList.style.opacity = '0.7';
+          }
+
+          try {
+            const res = await fetch('/api/streams');
+            const streams = await res.json();
+
+            // 添加淡入效果
+            streamList.style.opacity = '0';
+            
+            if (streams.length === 0) {
+              streamList.innerHTML = "<p>目前沒有正在進行的直播</p>";
+            } else {
+              streamList.innerHTML = streams.map(s => {
+                // detect PK rooms robustly: either special combined id contains '_PK_'
+                // or the title was created with 'PK:' prefix by the server when merging
+                const isPK = String(s.room_id).includes('_PK_') || (s.title && String(s.title).trim().startsWith('PK:'));
+                const href = isPK ? `/pk-viewer.html?room=${s.room_id}` : `/viewer.html?room=${s.room_id}`;
+                const badge = isPK ? `<span style="color:#fff;background:#d32f2f;padding:4px 8px;border-radius:6px;margin-left:8px;font-size:12px;">PK</span>` : '';
+                return `
+                <div class="stream-card">
+                  <img src="${s.cover || 'https://cdn-icons-png.flaticon.com/512/1160/1160358.png'}?t=${Date.now()}" 
+                      alt="cover" 
+                      style="aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#000;">
+                  <h3>${s.title} ${badge}</h3>
+                  <p>👤 ${s.username}</p>
+                  <p>${s.description}</p>
+                  <a href="${href}" class="view-btn">前往觀看</a>
+                </div>
+              `}).join('');
+            }
+
+            // Attach robust click handlers to view buttons to ensure navigation works
+            // (some browsers or overlays may block native <a> navigation; use JS fallback)
+            setTimeout(() => {
+              const btns = streamList.querySelectorAll('.view-btn');
+              btns.forEach(b => {
+                b.addEventListener('click', (ev) => {
+                  try { ev.preventDefault(); } catch (e) {}
+                  const href = b.getAttribute('href');
+                  console.log('[index] navigate to', href);
+                  if (href) window.location.href = href;
+                });
+              });
+              // Make the whole card clickable and keyboard-accessible
+              const cards = streamList.querySelectorAll('.stream-card');
+              cards.forEach(card => {
+                try {
+                  card.setAttribute('tabindex', '0');
+                  card.setAttribute('role', 'link');
+                  card.style.cursor = 'pointer';
+
+                  const navigateFromCard = () => {
+                    const a = card.querySelector('.view-btn');
+                    if (!a) return;
+                    const href = a.getAttribute('href');
+                    if (href) {
+                      console.log('[index] card navigate to', href);
+                      window.location.href = href;
+                    }
+                  };
+
+                  card.addEventListener('click', (ev) => {
+                    // if user clicked an interactive element inside (like a link/button), still navigate via href
+                    navigateFromCard();
+                  });
+
+                  card.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigateFromCard();
+                    }
+                  });
+                } catch (ex) {
+                  // ignore per-card errors
+                }
+              });
+            }, 0);
+
+            // 淡入顯示
+            setTimeout(() => {
+              streamList.style.opacity = '1';
+            }, 100);
+
+          } catch (err) {
+            console.error("❌ 無法載入直播清單：", err);
+            alert("載入失敗，請稍後再試");
+          } finally {
+            if (isManualRefresh) {
+              setTimeout(() => {
+                refreshBtn.classList.remove('refreshing');
+                refreshBtn.disabled = false;
+                streamList.style.opacity = '1';
+              }, 500);
+            }
+          }
+        }
+
+        // 首次載入
+        loadStreams();
+
+        // 🔄 手動刷新按鈕
+        document.getElementById('refreshBtn').onclick = () => loadStreams(true);
+
+        // ⏱ 每 10 秒自動刷新一次
+        setInterval(loadStreams, 10000);
+        
+        // 監聽封面更新事件
+        socket.on("cover-updated", () => loadStreams());
+
+
+      // 開直播按鈕
+      document.getElementById('startLive').onclick = () => liveModal.classList.remove('hidden');
+      document.getElementById('closeModal').onclick = () => liveModal.classList.add('hidden');
+
+      // 登出
+      document.getElementById('logout').onclick = async () => {
+        await fetch('/api/logout', { method: 'POST' });
+        location.href = '/login.html';
+      };
+
+      // 開始直播表單：先建立 stream，再（選擇性）上傳封面檔案到伺服器
+      document.getElementById('liveForm').onsubmit = async e => {
+        e.preventDefault();
+        const formValues = Object.fromEntries(new FormData(e.target));
+        const coverFile = coverInput.files[0];
+
+        // 1) 建立直播間（不直接傳 blob URL）
+        const res = await fetch('/api/start-stream', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formValues })
+        });
+        const data = await res.json();
+        alert(data.message);
+        if (!res.ok) return;
+
+        const roomId = data.roomId;
+
+        // 2) 若有上傳封面檔案，使用 /api/upload-cover 上傳（會儲存在 uploads/<roomId>/cover.ext 並更新資料庫）
+        if (coverFile) {
+          try {
+            const fd = new FormData();
+            // append roomId first so multer can read it during storage
+            fd.append('roomId', roomId);
+            fd.append('cover', coverFile);
+            const up = await fetch('/api/upload-cover', {
+              method: 'POST',
+              credentials: 'include',
+              body: fd
+            });
+            const upData = await up.json();
+            if (!up.ok) console.warn('封面上傳失敗：', upData);
+          } catch (err) {
+            console.error('上傳封面發生錯誤：', err);
+          }
+        }
+
+        // 3) 導向主播頁面
+        location.href = `/broadcaster.html?room=${roomId}`;
+      };
+
+      // 搜尋功能（按鈕與 Enter）
+      const searchInput = document.getElementById('searchInput');
+      const searchBtn = document.getElementById('searchBtn');
+      function goToRoom() {
+        const code = (searchInput.value || '').trim();
+        if (!code) return alert('請輸入房間號');
+        window.location.href = `/viewer.html?room=${encodeURIComponent(code)}`;
+      }
+      if (searchBtn) searchBtn.onclick = goToRoom;
+      if (searchInput) searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); goToRoom(); }
+      });
+    });
+  </script>
+</body>
+</html>
