@@ -17,6 +17,8 @@ const bcrypt = require("bcryptjs");
 const mysql = require("mysql2");
 const session = require("express-session");
 const bodyParser = require("body-parser");
+// load .env into process.env when available
+try { require('dotenv').config(); } catch (e) { /* dotenv optional in some environments */ }
 
 // --------------------- 基本設定 ---------------------
 app.use(express.static("public"));
@@ -27,7 +29,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(
   session({
-    secret: "super_secret_key",
+    secret: process.env.SESSION_SECRET || "super_secret_key",
     resave: false,
     saveUninitialized: false
   })
@@ -35,10 +37,10 @@ app.use(
 
 // --------------------- MySQL 連線 ---------------------
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "MySQL123!",
-  database: "live_platform"
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASS || "",
+  database: process.env.DB_NAME || "live_platform"
 });
 db.connect(err => {
   if (err) throw err;
