@@ -110,6 +110,27 @@
 
         console.log('[pk-broadcaster] joined combined room', combinedRoom, 'socket', socket.id);
 
+        // keep this combined PK room online in "熱門直播" by sending heartbeats
+        // note: server will auto-offline a stream if no heartbeat for a period
+        let __pkHeartbeatTimer = null;
+        const startPkHeartbeat = () => {
+          if (__pkHeartbeatTimer) return;
+          __pkHeartbeatTimer = setInterval(() => {
+            try {
+              if (!combinedRoom) return;
+              fetch('/api/heartbeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ roomId: combinedRoom })
+              }).catch(()=>{});
+            } catch (e) {}
+          }, 10000); // every 10s, same as單房直播
+        };
+        const stopPkHeartbeat = () => { if (__pkHeartbeatTimer) { clearInterval(__pkHeartbeatTimer); __pkHeartbeatTimer = null; } };
+        startPkHeartbeat();
+        window.addEventListener('beforeunload', stopPkHeartbeat);
+
         // Keep maps for viewer peers so combined-room viewers still get the broadcaster stream
         const viewerPeers = {}; // map socketId -> RTCPeerConnection
         const viewerPendingCandidates = {};

@@ -366,10 +366,10 @@ app.post('/api/end-stream', (req, res) => {
   );
 });
 
-// 自動檢查超過 30 秒未心跳 → 下架
+// 自動檢查超過 60 秒未心跳 → 下架（放寬容忍度，避免網路抖動導致誤下架）
 setInterval(() => {
   db.query(
-    "UPDATE streams SET status=FALSE WHERE status=TRUE AND TIMESTAMPDIFF(SECOND,last_active,NOW())>30",
+    "UPDATE streams SET status=FALSE WHERE status=TRUE AND TIMESTAMPDIFF(SECOND,last_active,NOW())>60",
     err => {
       if (err) console.error("❌ 檢查直播狀態失敗", err);
     }
