@@ -18,7 +18,10 @@ const mysql = require("mysql2");
 const session = require("express-session");
 const bodyParser = require("body-parser");
 // load .env into process.env when available
-try { require('dotenv').config(); } catch (e) { /* dotenv optional in some environments */ }
+try {
+  // 強制從與 server.js 同目錄的 .env 載入，避免因啟動目錄不同而讀不到
+  require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+} catch (e) { /* dotenv optional in some environments */ }
 // Debug: print minimal DB env to ensure correct .env is loaded (mask password length)
 const debugDbEnv = {
   host: process.env.DB_HOST,
@@ -60,7 +63,12 @@ console.log('[boot] DB config ->', { host: dbConfig.host, port: dbConfig.port, u
 
 const db = mysql.createConnection(dbConfig);
 db.connect(err => {
-  if (err) throw err;
+  if (err) {
+    console.error('❌ 無法連線到資料庫：', err && err.message ? err.message : err);
+    console.error('請檢查 .env 設定與 DB 使用者/密碼。當前設定：', { host: dbConfig.host, port: dbConfig.port, user: dbConfig.user, name: dbConfig.database });
+    // 不再直接 throw，避免整個進程崩潰；可視需求改為 process.exit(1)
+    return;
+  }
   // Ensure 'age' column exists for older DBs created before this field was added
   db.query("ALTER TABLE users ADD COLUMN age INT DEFAULT NULL", (alterErr) => {
     if (alterErr) {
