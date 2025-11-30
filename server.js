@@ -19,6 +19,15 @@ const session = require("express-session");
 const bodyParser = require("body-parser");
 // load .env into process.env when available
 try { require('dotenv').config(); } catch (e) { /* dotenv optional in some environments */ }
+// Debug: print minimal DB env to ensure correct .env is loaded (mask password length)
+const debugDbEnv = {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  passLen: process.env.DB_PASS ? String(process.env.DB_PASS).length : 0,
+  name: process.env.DB_NAME
+};
+console.log('[boot] DB env ->', debugDbEnv);
 
 // --------------------- 基本設定 ---------------------
 app.use(express.static("public"));
@@ -36,12 +45,20 @@ app.use(
 );
 
 // --------------------- MySQL 連線 ---------------------
-const db = mysql.createConnection({
+const dbConfig = {
   host: process.env.DB_HOST || "localhost",
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASS || "",
   database: process.env.DB_NAME || "live_platform"
-});
+};
+// Guard: if still using root with empty password, warn loudly
+if (dbConfig.user === 'root' && !dbConfig.password) {
+  console.warn('⚠️ DB is configured to use root with NO password. This will likely fail. Please set .env (DB_USER/DB_PASS).');
+}
+console.log('[boot] DB config ->', { host: dbConfig.host, port: dbConfig.port, user: dbConfig.user, name: dbConfig.database });
+
+const db = mysql.createConnection(dbConfig);
 db.connect(err => {
   if (err) throw err;
   // Ensure 'age' column exists for older DBs created before this field was added
@@ -54,6 +71,23 @@ db.connect(err => {
         console.warn('⚠️ 無法新增 users.age 欄位：', alterErr.message || alterErr);
       }
     }
+  });
+});
+
+// --------------------- Health Check ---------------------
+app.get('/health', (req, res) => {
+  db.ping(err => {
+    const envSummary = {
+      host: dbConfig.host,
+      port: dbConfig.port,
+      user: dbConfig.user,
+      name: dbConfig.database,
+      hasPass: !!(process.env.DB_PASS)
+    };
+    if (err) {
+      return res.status(500).json({ ok: false, error: String(err), env: envSummary });
+    }
+    res.json({ ok: true, env: envSummary });
   });
 });
 
