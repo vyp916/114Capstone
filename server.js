@@ -643,29 +643,31 @@ io.on("connection", socket => {
           console.warn('pk: failed to emit initial vote snapshot', e);
         }
 
-        // mark original streams as ended in DB (so index updates)
-        db.query("UPDATE streams SET status=FALSE, last_active=NOW() WHERE room_id IN (?,?)", [fromRoom, targetRoom], (err) => {
-          if (err) console.warn('pk: failed to mark old streams ended', err);
-        });
-
-        // try to insert a combined stream row (use ownerIdA or ownerIdB if available)
+        // try to insert a combined stream row BEFORE marking old ones as ended
+        // (so we can still query user_id from original streams if needed)
         const insertCombined = (ownerId) => {
           if (!ownerId) {
-            console.warn('pk: no owner found for combined stream; skipping DB insert (index may not show combined room)');
+            console.warn('pk: no valid user_id found for combined stream; skipping DB insert (index will not show combined room)');
             try { io.emit('cover-updated', { roomId: combined, coverPath: null }); } catch (e) { console.warn('emit cover-updated failed', e); }
             return;
           }
           db.query(
             "INSERT INTO streams (user_id, room_id, title, description, hashtags, status, last_active) VALUES (?,?,?,?,?,TRUE,NOW())",
-            // set title to broadcaster ids to make index show broadcasterId PK broadcasterId
-            [ownerId, combined, `PK: ${String(leftOwner)}_PK_${String(rightOwner)}`, '', ''],
+            // set title to show PK participants
+            [ownerId, combined, `PK: ${String(leftOwner)} vs ${String(rightOwner)}`, 'PK直播對決', '#PK'],
             (err3) => {
               if (err3) {
-                console.warn('pk: failed to insert combined stream row (non-fatal)', err3);
+                console.warn('pk: failed to insert combined stream row', err3);
               } else {
                 console.log('pk: inserted combined stream', combined, 'owner', ownerId);
               }
               try { io.emit('cover-updated', { roomId: combined, coverPath: null }); } catch (e) { console.warn('emit cover-updated failed', e); }
+              
+              // AFTER successful insert, mark original streams as ended
+              db.query("UPDATE streams SET status=FALSE, last_active=NOW() WHERE room_id IN (?,?)", [fromRoom, targetRoom], (err4) => {
+                if (err4) console.warn('pk: failed to mark old streams ended', err4);
+                else console.log('pk: marked original streams as ended', fromRoom, targetRoom);
+              });
             }
           );
         };
@@ -681,22 +683,36 @@ io.on("connection", socket => {
         roomPkEnabled.set(combined, false);
       };
 
-      // query DB for owner user_ids for both rooms, then handle combined
-      db.query("SELECT user_id FROM streams WHERE room_id=? LIMIT 1", [fromRoom], (err, rows) => {
+      // query DB for owner user_ids for both rooms (while they're still status=TRUE), then handle combined
+      db.query("SELECT user_id FROM streams WHERE room_id=? AND status=TRUE LIMIT 1", [fromRoom], (err, rows) => {
         if (err) {
           console.warn('pk: failed to query fromRoom owner', err);
-          // fallback: no owner id on DB, treat as null
-          db.query("SELECT user_id FROM streams WHERE room_id=? LIMIT 1", [targetRoom], (err2, rows2) => {
-            const ownerB = (rows2 && rows2[0]) ? rows2[0].user_id : null;
-            handleCombined(null, ownerB);
+          // fallback: try without status filter (in case already marked false)
+          db.query("SELECT user_id FROM streams WHERE room_id=? ORDER BY created_at DESC LIMIT 1", [fromRoom], (err1b, rows1b) => {
+            const ownerA = (rows1b && rows1b[0]) ? rows1b[0].user_id : null;
+            db.query("SELECT user_id FROM streams WHERE room_id=? AND status=TRUE LIMIT 1", [targetRoom], (err2, rows2) => {
+              if (err2) {
+                db.query("SELECT user_id FROM streams WHERE room_id=? ORDER BY created_at DESC LIMIT 1", [targetRoom], (err2b, rows2b) => {
+                  const ownerB = (rows2b && rows2b[0]) ? rows2b[0].user_id : null;
+                  handleCombined(ownerA, ownerB);
+                });
+              } else {
+                const ownerB = (rows2 && rows2[0]) ? rows2[0].user_id : null;
+                handleCombined(ownerA, ownerB);
+              }
+            });
           });
           return;
         }
         const ownerA = (rows && rows[0]) ? rows[0].user_id : null;
-        db.query("SELECT user_id FROM streams WHERE room_id=? LIMIT 1", [targetRoom], (err2, rows2) => {
+        db.query("SELECT user_id FROM streams WHERE room_id=? AND status=TRUE LIMIT 1", [targetRoom], (err2, rows2) => {
           if (err2) {
             console.warn('pk: failed to query targetRoom owner', err2);
-            handleCombined(ownerA, null);
+            // fallback without status filter
+            db.query("SELECT user_id FROM streams WHERE room_id=? ORDER BY created_at DESC LIMIT 1", [targetRoom], (err2b, rows2b) => {
+              const ownerB = (rows2b && rows2b[0]) ? rows2b[0].user_id : null;
+              handleCombined(ownerA, ownerB);
+            });
             return;
           }
           const ownerB = (rows2 && rows2[0]) ? rows2[0].user_id : null;
@@ -793,5 +809,5 @@ io.on("connection", socket => {
 });
 
 // --------------------- 啟動伺服器 ---------------------
-const PORT = 3000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 http.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
