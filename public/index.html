@@ -225,9 +225,10 @@
               streamList.innerHTML = "<p>目前沒有正在進行的直播</p>";
             } else {
               streamList.innerHTML = streams.map(s => {
-                // detect PK rooms robustly: either special combined id contains '_PK_'
-                // or the title was created with 'PK:' prefix by the server when merging
-                const isPK = String(s.room_id).includes('_PK_') || (s.title && String(s.title).trim().startsWith('PK:'));
+                // detect PK rooms: check if room_id starts with 'PK_' or contains '_PK_' (legacy)
+                // or the title contains PK indicators
+                const roomIdStr = String(s.room_id);
+                const isPK = roomIdStr.startsWith('PK_') || roomIdStr.includes('_PK_') || (s.title && (String(s.title).includes('PK對決') || String(s.title).includes('🔥')));
                 const href = isPK ? `/pk-viewer.html?room=${s.room_id}` : `/viewer.html?room=${s.room_id}`;
                 const badge = isPK ? `<span style="color:#fff;background:#d32f2f;padding:4px 8px;border-radius:6px;margin-left:8px;font-size:12px;">PK</span>` : '';
                 return `
@@ -380,7 +381,10 @@
       function goToRoom() {
         const code = (searchInput.value || '').trim();
         if (!code) return alert('請輸入房間號');
-        window.location.href = `/viewer.html?room=${encodeURIComponent(code)}`;
+        // Auto-detect PK rooms and redirect to pk-viewer
+        const isPKRoom = code.startsWith('PK_') || code.includes('_PK_');
+        const targetPage = isPKRoom ? '/pk-viewer.html' : '/viewer.html';
+        window.location.href = `${targetPage}?room=${encodeURIComponent(code)}`;
       }
       if (searchBtn) searchBtn.onclick = goToRoom;
       if (searchInput) searchInput.addEventListener('keydown', e => {
