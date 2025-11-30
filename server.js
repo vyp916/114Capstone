@@ -558,6 +558,29 @@ io.on("connection", socket => {
     }
   });
 
+  // Allow changing previously selected reaction (reselect): updates stats
+  // data: { roomId, type }
+  socket.on('reaction-change', data => {
+    try {
+      if (!data || !data.roomId || !data.type) return;
+      // ensure map exists
+      if (!roomReactions.has(data.roomId)) roomReactions.set(data.roomId, new Map());
+      const map = roomReactions.get(data.roomId);
+      // update this socket's recorded reaction to new type
+      map.set(socket.id, data.type);
+      // recompute counts and emit
+      const counts = {};
+      for (const t of map.values()) counts[t] = (counts[t] || 0) + 1;
+      let topType = null, topCount = 0;
+      for (const [k, v] of Object.entries(counts)) { if (v > topCount) { topType = k; topCount = v; } }
+      io.to(data.roomId).emit('reaction-stats', { topType, topCount, counts });
+      // also broadcast a visual-only reaction event so clients can animate the change
+      io.to(data.roomId).emit('reaction', { type: data.type, from: socket.id, changed: true });
+    } catch (e) {
+      console.warn('reaction-change failed', e);
+    }
+  });
+
   // PK-specific emoji stream (separate from normal reactions)
   socket.on('pk-emoji', data => {
     if (!data || !data.roomId || !data.type) return;

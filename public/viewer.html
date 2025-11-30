@@ -22,6 +22,7 @@
               <button class="react-btn" data-type="cry" title="送出 😢">😢</button>
               <button class="react-btn" data-type="like" title="送出 👍">👍</button>
               <button id="reactionValve" style="padding:6px 14px;border-radius:30px;border:1px solid #444;background:#111;color:#eee;font-size:13px;cursor:pointer;">🔁 動畫: 開啟</button>
+              <button id="reactionReselect" style="padding:6px 14px;border-radius:30px;border:1px solid #444;background:#111;color:#eee;font-size:13px;cursor:pointer;">🎯 重選表情</button>
               <span id="topReaction" style="margin-left:auto;font-size:14px;color:#ffd2e6;"></span>
             </div>
             <div id="reactionLayer" style="position:fixed; right:20px; bottom:100px; width:160px; height:50vh; pointer-events:none; overflow:visible; z-index:9999;"></div>
@@ -126,6 +127,8 @@
       let showEmoji = true;   // 閥門：控制是否顯示本地動畫
       let reacted = false;    // 是否已送出過第一次反應（統計只記一次）
       const valveBtn = document.getElementById('reactionValve');
+    const reselectBtn = document.getElementById('reactionReselect');
+    let reselectMode = false; // 重選模式：下一次點擊表情將送出 reaction-change
 
       function spawnEmoji(type, opts = {}) {
         if (!showEmoji) return; // 閥門關閉仍可統計，但不顯示動畫
@@ -167,6 +170,16 @@
         });
       }
 
+      if (reselectBtn) {
+        reselectBtn.addEventListener('click', () => {
+          reselectMode = true;
+          reselectBtn.textContent = '🎯 重選中…';
+          reselectBtn.disabled = true;
+          // 5 秒後自動退出重選模式（避免忘記點）
+          setTimeout(() => { if (reselectMode) { reselectMode = false; reselectBtn.textContent = '🎯 重選表情'; reselectBtn.disabled = false; } }, 5000);
+        });
+      }
+
       // 更新熱門反應統計
       socket.on('reaction-stats', stats => {
         const el = document.getElementById('topReaction');
@@ -180,16 +193,19 @@
       // 接收他人反應動畫（不影響統計）
       socket.on('reaction', ({ type }) => { spawnEmoji(type); });
 
-      // 綁定按鈕送出 reaction（第一次計入）
+      // 綁定按鈕送出 reaction：每次都送事件以顯示動畫；統計僅記第一次
       document.querySelectorAll('.react-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const type = btn.dataset.type;
           if (!roomId || !type) return;
-          if (!reacted) {
+          // 每次都送出事件，讓所有人看到動畫；伺服器只會在第一次計入統計
+          if (reselectMode) {
+            socket.emit('reaction-change', { roomId, type });
+            reselectMode = false;
+            if (reselectBtn) { reselectBtn.textContent = '🎯 重選表情'; reselectBtn.disabled = false; }
+          } else {
             socket.emit('reaction', { roomId, type });
-            reacted = true;
-            // 停用其他按鈕避免重複計數
-            document.querySelectorAll('.react-btn').forEach(b => { if (b !== btn) b.disabled = true; });
+            if (!reacted) reacted = true; // 標記已反應過一次
           }
           spawnEmoji(type, { size: 20 + Math.random() * 14 });
         });
