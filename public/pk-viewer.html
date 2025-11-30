@@ -132,6 +132,9 @@
     let rightOwnerId = rightOwnerParam;
     let latestCounts = {};
     let toastTimer = null;
+  // 初始未取得左右主播 ID 前，先禁用投票按鈕避免誤觸
+  if (voteLeftBtn) voteLeftBtn.disabled = true;
+  if (voteRightBtn) voteRightBtn.disabled = true;
 
     if (!combinedRoom) {
       document.getElementById('info').textContent = '錯誤：缺少合併房間編號';
@@ -162,10 +165,13 @@
       if (voteLeftBtn) {
         voteLeftBtn.dataset.defaultText = `支持 ${leftName}`;
         if (!voteLeftBtn.classList.contains('voted')) voteLeftBtn.textContent = voteLeftBtn.dataset.defaultText;
+        // 當左右主播 ID 都已知時才開放投票
+        voteLeftBtn.disabled = !(leftOwnerId && rightOwnerId);
       }
       if (voteRightBtn) {
         voteRightBtn.dataset.defaultText = `支持 ${rightName}`;
         if (!voteRightBtn.classList.contains('voted')) voteRightBtn.textContent = voteRightBtn.dataset.defaultText;
+        voteRightBtn.disabled = !(leftOwnerId && rightOwnerId);
       }
     }
 
@@ -217,7 +223,8 @@
       const targetOwner = side === 'left' ? leftOwnerId : rightOwnerId;
       const button = side === 'left' ? voteLeftBtn : voteRightBtn;
       if (!targetOwner) {
-        showToast('尚未取得 PK 雙方資訊，請稍候');
+        // 按鈕已禁用，不再彈出提示以降低干擾；保留一行輕微導引
+        showToast('正在取得 PK 資訊…');
         return;
       }
       socket.emit('pk-vote', { roomId: combinedRoom, ownerId: targetOwner });

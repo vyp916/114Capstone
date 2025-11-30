@@ -15,6 +15,23 @@
           <video id="video" autoplay playsinline controls muted></video>
           <button id="unmuteBtn" style="position:absolute; right:16px; bottom:16px; z-index:999; padding:8px 10px; border-radius:6px; background:#222;color:#fff;border:none;display:none;">解除靜音 🔊</button>
           <!-- reactions (moved to PK pages) -->
+            <!-- === Reactions (恢復非 PK 觀看端互動) === -->
+            <div id="reactionBar" style="margin:10px 0 4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="react-btn" data-type="heart" title="送出 💖">💖</button>
+              <button class="react-btn" data-type="laugh" title="送出 😄">😄</button>
+              <button class="react-btn" data-type="cry" title="送出 😢">😢</button>
+              <button class="react-btn" data-type="like" title="送出 👍">👍</button>
+              <button id="reactionValve" style="padding:6px 14px;border-radius:30px;border:1px solid #444;background:#111;color:#eee;font-size:13px;cursor:pointer;">🔁 動畫: 開啟</button>
+              <span id="topReaction" style="margin-left:auto;font-size:14px;color:#ffd2e6;"></span>
+            </div>
+            <div id="reactionLayer" style="position:fixed; right:20px; bottom:100px; width:160px; height:50vh; pointer-events:none; overflow:visible; z-index:9999;"></div>
+            <style>
+              .react-btn { width:52px;height:52px;border-radius:50%;border:none;font-size:24px;cursor:pointer;background:#222;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.45);transition:transform .15s, box-shadow .15s; }
+              .react-btn:hover { transform:translateY(-3px) scale(1.06); box-shadow:0 8px 18px rgba(0,0,0,.55); }
+              .react-btn:disabled { filter:grayscale(70%); opacity:.55; cursor:not-allowed; }
+              #reactionValve.off { background:#300; color:#f88; }
+              .emoji-particle { position:fixed; font-size:20px; opacity:0; transform:translate3d(0,0,0) scale(.9); transition:transform 1.1s cubic-bezier(.2,.9,.2,1), opacity 1.1s linear; will-change:transform,opacity; pointer-events:none; }
+            </style>
         <p id="roomInfo"></p>
         <a href="index.html">返回首頁</a>
       </div>
@@ -105,6 +122,79 @@
     });
 
     // reactions removed from normal viewer; PK pages now provide emoji UI
+      // === 普通觀看頁面 Reactions 功能 ===
+      let showEmoji = true;   // 閥門：控制是否顯示本地動畫
+      let reacted = false;    // 是否已送出過第一次反應（統計只記一次）
+      const valveBtn = document.getElementById('reactionValve');
+
+      function spawnEmoji(type, opts = {}) {
+        if (!showEmoji) return; // 閥門關閉仍可統計，但不顯示動畫
+        const layer = document.getElementById('reactionLayer');
+        if (!layer) return;
+        const el = document.createElement('div');
+        el.className = 'emoji-particle';
+        el.textContent = (type === 'heart') ? '💖' : (type === 'laugh') ? '😄' : (type === 'cry') ? '😢' : '👍';
+        const ref = document.getElementById('video');
+        let startX, startY;
+        if (ref && typeof ref.getBoundingClientRect === 'function') {
+          const r = ref.getBoundingClientRect();
+          startX = r.right - 36 + (Math.random() - 0.5) * 30;
+          startY = r.bottom - 22 + (Math.random() - 0.5) * 16;
+        } else {
+          startX = window.innerWidth * 0.75 + (Math.random() - 0.5) * 120;
+          startY = window.innerHeight * 0.6 + (Math.random() - 0.5) * 100;
+        }
+        el.style.left = startX + 'px';
+        el.style.top = startY + 'px';
+        el.style.fontSize = (opts.size || (18 + Math.random() * 16)) + 'px';
+        el.style.opacity = '1';
+        document.body.appendChild(el);
+        requestAnimationFrame(() => {
+          const dx = (Math.random() - 0.5) * 50;
+          const dy = - (190 + Math.random() * 140);
+          const rot = (Math.random() - 0.5) * 40;
+          el.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(1.05)`;
+          el.style.opacity = '0';
+        });
+        setTimeout(() => { try { el.remove(); } catch (e) {} }, 1150);
+      }
+
+      if (valveBtn) {
+        valveBtn.addEventListener('click', () => {
+          showEmoji = !showEmoji;
+          valveBtn.classList.toggle('off', !showEmoji);
+          valveBtn.textContent = showEmoji ? '🔁 動畫: 開啟' : '🔁 動畫: 關閉';
+        });
+      }
+
+      // 更新熱門反應統計
+      socket.on('reaction-stats', stats => {
+        const el = document.getElementById('topReaction');
+        if (!el) return;
+        if (!stats || !stats.topType) { el.textContent = ''; return; }
+        const emojiMap = { heart: '💖', laugh: '😄', cry: '😢', like: '👍' };
+        const e = emojiMap[stats.topType] || stats.topType;
+        el.textContent = `${e} ${stats.topCount}`;
+      });
+
+      // 接收他人反應動畫（不影響統計）
+      socket.on('reaction', ({ type }) => { spawnEmoji(type); });
+
+      // 綁定按鈕送出 reaction（第一次計入）
+      document.querySelectorAll('.react-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const type = btn.dataset.type;
+          if (!roomId || !type) return;
+          if (!reacted) {
+            socket.emit('reaction', { roomId, type });
+            reacted = true;
+            // 停用其他按鈕避免重複計數
+            document.querySelectorAll('.react-btn').forEach(b => { if (b !== btn) b.disabled = true; });
+          }
+          spawnEmoji(type, { size: 20 + Math.random() * 14 });
+        });
+      });
+    // (上方已恢復普通直播的 reaction UI)
 
   const sendBtn = document.getElementById('sendBtn');
     // 傳送訊息功能

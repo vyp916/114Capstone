@@ -62,7 +62,22 @@
   🛑 結束直播
   </button>
 
-  <!-- reactions moved to PK broadcaster page; non-PK broadcaster does not show emoji UI -->
+  <!-- === Reactions / Emoji 区域（恢復非 PK 直播的互動） === -->
+  <div id="reactionBar" style="margin:14px auto 4px;max-width:720px;text-align:center;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
+    <button class="react-btn" data-type="heart" title="送出 💖">💖</button>
+    <button class="react-btn" data-type="laugh" title="送出 😄">😄</button>
+    <button class="react-btn" data-type="cry" title="送出 😢">😢</button>
+    <button class="react-btn" data-type="like" title="送出 👍">👍</button>
+    <button id="reactionValve" style="padding:8px 12px;border-radius:30px;border:1px solid #444;background:#111;color:#eee;font-size:14px;cursor:pointer;">🔁 動畫: 開啟</button>
+  </div>
+  <div id="reactionLayer" style="position:fixed; right:18px; bottom:90px; width:180px; height:55vh; pointer-events:none; overflow:visible; z-index:9999; display:flex; flex-direction:column; align-items:flex-end; gap:6px;"></div>
+  <style>
+    .react-btn { width:58px;height:58px;border-radius:50%;border:none;font-size:26px;cursor:pointer;background:linear-gradient(145deg,#222,#111);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform .15s, box-shadow .15s; }
+    .react-btn:hover { transform:translateY(-3px) scale(1.06); box-shadow:0 8px 18px rgba(0,0,0,0.55); }
+    .react-btn:disabled { filter:grayscale(70%); opacity:.55; cursor:not-allowed; }
+    #reactionValve.off { background:#300; color:#f88; }
+    .emoji-particle { position:fixed; font-size:22px; opacity:0; transform:translate3d(0,0,0) scale(.9); transition:transform 1.15s cubic-bezier(.2,.9,.2,1), opacity 1.15s linear; will-change:transform,opacity; pointer-events:none; }
+  </style>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="filters.js"></script>
@@ -145,7 +160,75 @@
       el.textContent = `${e} ${stats.topCount}`;
     });
 
-    // reactions moved to PK pages; non-PK broadcaster will not show spawned emoji here
+    // === 普通直播的 Reactions 功能（僅第一次點擊計入統計；Valve 控制本地粒子動畫） ===
+    let showEmoji = true;           // 閥門：是否顯示本地動畫
+    let reacted = false;            // 是否已送出過第一次反應（統計只記第一個）
+    const valveBtn = document.getElementById('reactionValve');
+
+    function spawnEmoji(type, opts = {}) {
+      if (!showEmoji) return; // 閥門關閉時不顯示，但仍可統計
+      const layer = document.getElementById('reactionLayer');
+      if (!layer) return;
+      const el = document.createElement('div');
+      el.className = 'emoji-particle';
+      el.textContent = (type === 'heart') ? '💖' : (type === 'laugh') ? '😄' : (type === 'cry') ? '😢' : '👍';
+      // 出現位置：影片右下附近浮起
+      const ref = document.getElementById('video');
+      let startX, startY;
+      if (ref && typeof ref.getBoundingClientRect === 'function') {
+        const r = ref.getBoundingClientRect();
+        startX = r.right - 40 + (Math.random() - 0.5) * 32;
+        startY = r.bottom - 30 + (Math.random() - 0.5) * 18;
+      } else {
+        startX = window.innerWidth * 0.75 + (Math.random() - 0.5) * 120;
+        startY = window.innerHeight * 0.6 + (Math.random() - 0.5) * 100;
+      }
+      el.style.left = startX + 'px';
+      el.style.top = startY + 'px';
+      el.style.fontSize = (opts.size || (18 + Math.random() * 18)) + 'px';
+      el.style.opacity = '1';
+      layer.appendChild(el);
+      requestAnimationFrame(() => {
+        const dx = (Math.random() - 0.5) * 55;
+        const dy = - (200 + Math.random() * 150);
+        const rot = (Math.random() - 0.5) * 40;
+        el.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(1.05)`;
+        el.style.opacity = '0';
+      });
+      setTimeout(() => { try { el.remove(); } catch (e) {} }, 1200);
+    }
+
+    // 點擊 Valve 切換動畫顯示狀態
+    if (valveBtn) {
+      valveBtn.addEventListener('click', () => {
+        showEmoji = !showEmoji;
+        valveBtn.classList.toggle('off', !showEmoji);
+        valveBtn.textContent = showEmoji ? '🔁 動畫: 開啟' : '🔁 動畫: 關閉';
+      });
+    }
+
+    // 監聽來自其他使用者的 reaction 事件 → 顯示動畫（不影響統計）
+    socket.on('reaction', ({ type, from }) => {
+      try { spawnEmoji(type); } catch (e) {}
+    });
+
+    // 綁定按鈕送出 reaction：第一次送出計入統計，之後僅播放動畫（避免統計重複）
+    document.querySelectorAll('.react-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        if (!roomId || !type) return;
+        // 第一次：送到伺服器計入；之後：只本地動畫
+        if (!reacted) {
+          socket.emit('reaction', { roomId, type });
+          reacted = true;
+          // 停用其他按鈕以示只計一次（可保留本按鈕做動畫）
+          document.querySelectorAll('.react-btn').forEach(b => { if (b !== btn) b.disabled = true; });
+        } else {
+          // 已反應過：只播放動畫，不再 emit
+        }
+        spawnEmoji(type, { size: 22 + Math.random() * 16 });
+      });
+    });
 
     // PK UI handlers
     const pkSendBtn = document.getElementById('pkSendBtn');
