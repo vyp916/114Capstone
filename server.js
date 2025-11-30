@@ -596,17 +596,14 @@ io.on("connection", socket => {
       // We need broadcaster user_ids to form combined id. Try to query DB for both room owners,
       // fallback to using room ids if user ids not found.
       const handleCombined = (ownerIdA, ownerIdB) => {
-        // compute deterministic combined room id based on broadcaster IDs (strings)
-        const a = ownerIdA ? String(ownerIdA) : String(fromRoom);
-        const b = ownerIdB ? String(ownerIdB) : String(targetRoom);
-        const sorted = [a, b].sort();
-        const combined = sorted.join('_PK_');
+        // generate PK room with format: PK_xxxxx (random 5-char code)
+        const combined = 'PK_' + generateRoomCode();
 
         // inform both broadcasters to start PK and include left/right owner mapping (preserve original order as left=fromRoom owner)
         const ownerASocket = roomOwners.get(fromRoom);
         const ownerBSocket = roomOwners.get(targetRoom);
-        const leftOwner = ownerIdA || a;
-        const rightOwner = ownerIdB || b;
+        const leftOwner = ownerIdA || String(fromRoom);
+        const rightOwner = ownerIdB || String(targetRoom);
         if (ownerASocket) io.to(ownerASocket).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner });
         if (ownerBSocket) io.to(ownerBSocket).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner });
 
@@ -651,25 +648,37 @@ io.on("connection", socket => {
             try { io.emit('cover-updated', { roomId: combined, coverPath: null }); } catch (e) { console.warn('emit cover-updated failed', e); }
             return;
           }
-          db.query(
-            "INSERT INTO streams (user_id, room_id, title, description, hashtags, status, last_active) VALUES (?,?,?,?,?,TRUE,NOW())",
-            // set title to show PK participants
-            [ownerId, combined, `PK: ${String(leftOwner)} vs ${String(rightOwner)}`, 'PK直播對決', '#PK'],
-            (err3) => {
-              if (err3) {
-                console.warn('pk: failed to insert combined stream row', err3);
-              } else {
-                console.log('pk: inserted combined stream', combined, 'owner', ownerId);
-              }
-              try { io.emit('cover-updated', { roomId: combined, coverPath: null }); } catch (e) { console.warn('emit cover-updated failed', e); }
-              
-              // AFTER successful insert, mark original streams as ended
-              db.query("UPDATE streams SET status=FALSE, last_active=NOW() WHERE room_id IN (?,?)", [fromRoom, targetRoom], (err4) => {
-                if (err4) console.warn('pk: failed to mark old streams ended', err4);
-                else console.log('pk: marked original streams as ended', fromRoom, targetRoom);
-              });
+          
+          // Query usernames for both owners to create a friendly title
+          db.query("SELECT username FROM users WHERE id IN (?,?)", [leftOwner, rightOwner], (errUsers, userRows) => {
+            let title = 'PK直播對決';
+            if (!errUsers && userRows && userRows.length >= 2) {
+              const name1 = userRows[0].username;
+              const name2 = userRows[1].username;
+              title = `🔥 PK對決：${name1} vs ${name2}`;
+            } else if (!errUsers && userRows && userRows.length === 1) {
+              title = `🔥 PK對決：${userRows[0].username} vs 神秘主播`;
             }
-          );
+            
+            db.query(
+              "INSERT INTO streams (user_id, room_id, title, description, hashtags, status, last_active) VALUES (?,?,?,?,?,TRUE,NOW())",
+              [ownerId, combined, title, 'PK直播對決', '#PK'],
+              (err3) => {
+                if (err3) {
+                  console.warn('pk: failed to insert combined stream row', err3);
+                } else {
+                  console.log('pk: inserted combined stream', combined, 'owner', ownerId, 'title', title);
+                }
+                try { io.emit('cover-updated', { roomId: combined, coverPath: null }); } catch (e) { console.warn('emit cover-updated failed', e); }
+                
+                // AFTER successful insert, mark original streams as ended
+                db.query("UPDATE streams SET status=FALSE, last_active=NOW() WHERE room_id IN (?,?)", [fromRoom, targetRoom], (err4) => {
+                  if (err4) console.warn('pk: failed to mark old streams ended', err4);
+                  else console.log('pk: marked original streams as ended', fromRoom, targetRoom);
+                });
+              }
+            );
+          });
         };
 
         // prefer leftOwner for DB insert, fallback to rightOwner

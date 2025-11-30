@@ -2,8 +2,11 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Live Stream Broadcaster</title>
   <link rel="stylesheet" href="style-modern.css">
+  <!-- 手機相容性修復 -->
+  <script src="mobile-fix.js"></script>
 
   <style>
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -294,7 +297,10 @@
         // after Camera is started or handle AbortError specifically.
 
     // 建立 FilterManager：將原始攝影機流作為來源，產生處理後的視訊（canvas）
-  const filterMgr = new FilterManager(sourceVideo, stream, { width: 1280, height: 720, fps: 25, autoFace: true });
+    // 使用手機相容性修復取得最佳化配置
+    const filterConfig = window.MobileFix ? window.MobileFix.getMobileOptimizedConfig() : { width: 1280, height: 720, fps: 25, autoFace: true };
+    console.log('[Broadcaster] 使用濾鏡配置:', filterConfig);
+    const filterMgr = new FilterManager(sourceVideo, stream, filterConfig);
 
         // preview broadcaster: 顯示處理後的視訊（canvas stream）
         const processedStream = filterMgr.getProcessedStream();
