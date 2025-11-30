@@ -10,6 +10,11 @@
   <div class="viewer-layout">
     <div class="viewer-area">
       <div class="viewer-container">
+        <div id="infoBar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+          <span>房間號：<strong id="roomCode">---</strong></span>
+          <span>👥 在線人數：<strong id="viewerCount">0</strong></span>
+          <button id="shareBtn" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#111;color:#eee;cursor:pointer;">📤 分享連結</button>
+        </div>
         <h2 id="streamTitle">載入中...</h2>
         <p id="streamDesc"></p>
           <video id="video" autoplay playsinline controls muted></video>
@@ -57,11 +62,30 @@
     socket.on('connect_error', (err) => console.warn('[viewer] socket connect_error', err && err.message));
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
+  // 顯示房間號
+  try { const rc = document.getElementById('roomCode'); if (rc) rc.textContent = roomId || '---'; } catch (e) {}
   let username = '匿名用戶';
   let avatar = '/uploads/default_avatar.png';
   let userId = null; // deterministic id for coloring chat names (from /api/profile)
 
     socket.emit('join-room', roomId);
+    // 在線人數更新
+    socket.on('viewer-count', count => {
+      try { const vc = document.getElementById('viewerCount'); if (vc) vc.textContent = String(count); } catch (e) {}
+    });
+
+    // 分享連結按鈕
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+      shareBtn.onclick = () => {
+        const url = `${window.location.origin}/viewer.html?room=${encodeURIComponent(roomId || '')}`;
+        navigator.clipboard.writeText(url).then(() => {
+          alert(`📎 已複製分享連結：\n${url}`);
+        }).catch(() => {
+          alert('無法複製到剪貼簿，請手動複製：\n' + url);
+        });
+      };
+    }
     // request watcher role; also retry when a broadcaster appears
     socket.emit('watcher');
     socket.on('broadcaster', () => socket.emit('watcher'));

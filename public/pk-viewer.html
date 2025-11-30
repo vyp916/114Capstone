@@ -65,6 +65,11 @@
 </head>
 <body>
   <h2>PK 觀看畫面</h2>
+  <div id="infoBar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+    <span>合併房間：<strong id="roomCode">---</strong></span>
+    <span>👥 在線人數：<strong id="viewerCount">0</strong></span>
+    <button id="shareBtn" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#111;color:#eee;cursor:pointer;">📤 分享連結</button>
+  </div>
   <div id="info">等待導向中…</div>
   <div class="pk-container">
     <div class="pk-side">
@@ -120,6 +125,8 @@
     const socket = io();
     const params = new URLSearchParams(window.location.search);
     const combinedRoom = params.get('room');
+  // 顯示房間號
+  try { const rc = document.getElementById('roomCode'); if (rc) rc.textContent = combinedRoom || '---'; } catch (e) {}
     const leftOwnerParam = params.get('left') || params.get('leftOwner') || null;
     const rightOwnerParam = params.get('right') || params.get('rightOwner') || null;
     const leftLabelEl = document.getElementById('leftLabel');
@@ -145,6 +152,24 @@
       socket.emit('join-room', combinedRoom);
       // ask to receive streams: emit watcher so broadcasters create offers to this viewer
       socket.emit('watcher');
+    }
+
+    // 在線人數更新（沿用服務端 viewer-count 事件）
+    socket.on('viewer-count', count => {
+      try { const vc = document.getElementById('viewerCount'); if (vc) vc.textContent = String(count); } catch (e) {}
+    });
+
+    // 分享連結
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+      shareBtn.onclick = () => {
+        const url = `${window.location.origin}/pk-viewer.html?room=${encodeURIComponent(combinedRoom || '')}`;
+        navigator.clipboard.writeText(url).then(() => {
+          alert(`📎 已複製分享連結：\n${url}`);
+        }).catch(() => {
+          alert('無法複製到剪貼簿，請手動複製：\n' + url);
+        });
+      };
     }
 
     function getDisplayName(side) {
