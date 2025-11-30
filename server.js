@@ -643,21 +643,27 @@ io.on("connection", socket => {
         // try to insert a combined stream row BEFORE marking old ones as ended
         // (so we can still query user_id from original streams if needed)
         const insertCombined = (ownerId) => {
+          console.log('pk: insertCombined called with ownerId:', ownerId, 'combined room:', combined);
           if (!ownerId) {
-            console.warn('pk: no valid user_id found for combined stream; skipping DB insert (index will not show combined room)');
+            console.warn('❌ pk: no valid user_id found for combined stream; skipping DB insert (index will not show combined room)');
             try { io.emit('cover-updated', { roomId: combined, coverPath: null }); } catch (e) { console.warn('emit cover-updated failed', e); }
             return;
           }
           
           // Query usernames for both owners to create a friendly title
+          console.log('pk: querying usernames for', leftOwner, rightOwner);
           db.query("SELECT username FROM users WHERE id IN (?,?)", [leftOwner, rightOwner], (errUsers, userRows) => {
             let title = 'PK直播對決';
             if (!errUsers && userRows && userRows.length >= 2) {
               const name1 = userRows[0].username;
               const name2 = userRows[1].username;
               title = `🔥 PK對決：${name1} vs ${name2}`;
+              console.log('pk: found both usernames:', name1, 'vs', name2);
             } else if (!errUsers && userRows && userRows.length === 1) {
               title = `🔥 PK對決：${userRows[0].username} vs 神秘主播`;
+              console.log('pk: found one username:', userRows[0].username);
+            } else {
+              console.warn('pk: failed to query usernames:', errUsers || 'no rows found');
             }
             
             db.query(
@@ -665,9 +671,10 @@ io.on("connection", socket => {
               [ownerId, combined, title, 'PK直播對決', '#PK'],
               (err3) => {
                 if (err3) {
-                  console.warn('pk: failed to insert combined stream row', err3);
+                  console.error('❌ pk: failed to insert combined stream row:', err3.message || err3);
+                  console.error('pk: insert params:', { ownerId, combined, title });
                 } else {
-                  console.log('pk: inserted combined stream', combined, 'owner', ownerId, 'title', title);
+                  console.log('✅ pk: inserted combined stream', combined, 'owner', ownerId, 'title', title);
                 }
                 try { io.emit('cover-updated', { roomId: combined, coverPath: null }); } catch (e) { console.warn('emit cover-updated failed', e); }
                 
