@@ -82,7 +82,7 @@ db.connect(err => {
   });
 });
 
-// --------------------- Health Check ---------------------
+// --------------------- Health Check --------------------
 app.get('/health', (req, res) => {
   db.ping(err => {
     const envSummary = {
