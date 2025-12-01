@@ -147,12 +147,24 @@
             const pc = new RTCPeerConnection({ 
               iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
                 {
                   urls: 'turn:openrelay.metered.ca:80',
                   username: 'openrelayproject',
                   credential: 'openrelayproject'
+                },
+                {
+                  urls: 'turn:openrelay.metered.ca:443',
+                  username: 'openrelayproject',
+                  credential: 'openrelayproject'
+                },
+                {
+                  urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                  username: 'openrelayproject',
+                  credential: 'openrelayproject'
                 }
-              ]
+              ],
+              iceCandidatePoolSize: 10
             });
             // add local tracks
             localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
@@ -180,12 +192,24 @@
                 const vpc = new RTCPeerConnection({ 
                   iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
                     {
                       urls: 'turn:openrelay.metered.ca:80',
                       username: 'openrelayproject',
                       credential: 'openrelayproject'
+                    },
+                    {
+                      urls: 'turn:openrelay.metered.ca:443',
+                      username: 'openrelayproject',
+                      credential: 'openrelayproject'
+                    },
+                    {
+                      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                      username: 'openrelayproject',
+                      credential: 'openrelayproject'
                     }
-                  ]
+                  ],
+                  iceCandidatePoolSize: 10
                 });
                 viewerPeers[id] = vpc;
                 // add local tracks (camera/audio)
