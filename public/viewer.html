@@ -290,6 +290,16 @@
 
   // 觀看端 WebRTC - support multiple broadcasters (map by id) and handle duplicate offers
   const video = document.getElementById('video');
+  const config = { 
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      }
+    ]
+  };
   const peers = {}; // map of RTCPeerConnection by broadcaster socket id
   const pendingCandidates = {}; // store candidates that arrive before pc is created
   socket.emit("watcher");
@@ -304,7 +314,7 @@
           try { if (video.srcObject) video.srcObject = null; } catch (e) {}
         }
 
-        const pc = new RTCPeerConnection();
+        const pc = new RTCPeerConnection(config);
         peers[id] = pc;
 
         pc.ontrack = event => {

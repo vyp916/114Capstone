@@ -144,7 +144,16 @@
             const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             localVideo.srcObject = localStream;
 
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            const pc = new RTCPeerConnection({ 
+              iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                {
+                  urls: 'turn:openrelay.metered.ca:80',
+                  username: 'openrelayproject',
+                  credential: 'openrelayproject'
+                }
+              ]
+            });
             // add local tracks
             localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
@@ -168,7 +177,16 @@
                 if (!id) return;
                 console.log('[pk-broadcaster] watcher seen:', id);
                 // create a new pc for this viewer
-                const vpc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                const vpc = new RTCPeerConnection({ 
+                  iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    {
+                      urls: 'turn:openrelay.metered.ca:80',
+                      username: 'openrelayproject',
+                      credential: 'openrelayproject'
+                    }
+                  ]
+                });
                 viewerPeers[id] = vpc;
                 // add local tracks (camera/audio)
                 localStream.getTracks().forEach(t => vpc.addTrack(t, localStream));
