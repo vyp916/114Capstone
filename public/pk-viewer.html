@@ -22,17 +22,21 @@
     .pk-vote-btn.voted { opacity:0.85; transform:scale(0.97); }
     .pk-vote-btn:disabled { cursor:not-allowed; opacity:0.6; }
     .pk-react-btn {
-      width:46px;
-      height:46px;
+      width:50px;
+      height:50px;
       border-radius:50%;
       border:none;
       font-size:22px;
       cursor:pointer;
-      background:rgba(255,255,255,0.08);
+      background:linear-gradient(145deg,#FFB380,#FFCC99);
       color:#fff;
-      transition:transform 0.15s ease, background 0.15s ease;
+      transition:transform 0.15s ease, box-shadow 0.15s ease;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 4px 10px rgba(255,179,128,0.4);
     }
-    .pk-react-btn:hover { transform:translateY(-2px) scale(1.05); background:rgba(255,255,255,0.18); }
+    .pk-react-btn:hover { transform:translateY(-2px) scale(1.05); box-shadow:0 8px 18px rgba(255,179,128,0.55); }
     .vote-burst {
       position:fixed;
       pointer-events:none;
@@ -64,13 +68,13 @@
   </style>
 </head>
 <body>
-  <h2>PK 觀看畫面</h2>
-  <div id="infoBar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-    <span>合併房間：<strong id="roomCode">---</strong></span>
-    <span>👥 在線人數：<strong id="viewerCount">0</strong></span>
-    <button id="shareBtn" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#111;color:#eee;cursor:pointer;">📤 分享連結</button>
+  <h2 style="color:#333; text-align:center;">PK 觀看畫面</h2>
+  <div id="infoBar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;justify-content:center;">
+    <span style="color:#666;">合併房間：<strong id="roomCode" style="color:#333;">---</strong></span>
+    <span style="color:#666;">👥 在線人數：<strong id="viewerCount" style="color:#FF6B35;">0</strong></span>
+    <button id="shareBtn" style="padding:6px 12px;border-radius:6px;border:1px solid #FF6B35;background:#FFCC99;color:#000;cursor:pointer;font-weight:600;">📤 分享連結</button>
   </div>
-  <div id="info">等待導向中…</div>
+  <div id="info" style="text-align:center; color:#666; margin-bottom:10px;">等待導向中…</div>
   <div class="pk-container">
     <div class="pk-side">
       <h3>主播 A</h3>
@@ -84,16 +88,16 @@
 
   <!-- PK vote / heat UI -->
   <div style="display:flex; gap:12px; margin:12px 0; max-width:980px; margin-left:auto; margin-right:auto;">
-    <div style="flex:1; text-align:center; color:#fff;">
-      <div id="leftLabel">主播 A</div>
-      <div style="height:18px;background:rgba(255,255,255,0.06);border-radius:10px;margin:8px 12px;overflow:hidden;">
+    <div style="flex:1; text-align:center;">
+      <div id="leftLabel" style="color:#333; font-weight:600; margin-bottom:4px;">主播 A</div>
+      <div style="height:18px;background:#f5f5f5;border-radius:10px;margin:8px 12px;overflow:hidden;border:1px solid #e0e0e0;">
         <div id="leftHeat" style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b6b,#ff4081);"></div>
       </div>
   <button id="voteLeft" class="pk-vote-btn left">支持 主播 A</button>
     </div>
-    <div style="flex:1; text-align:center; color:#fff;">
-      <div id="rightLabel">主播 B</div>
-      <div style="height:18px;background:rgba(255,255,255,0.06);border-radius:10px;margin:8px 12px;overflow:hidden;">
+    <div style="flex:1; text-align:center;">
+      <div id="rightLabel" style="color:#333; font-weight:600; margin-bottom:4px;">主播 B</div>
+      <div style="height:18px;background:#f5f5f5;border-radius:10px;margin:8px 12px;overflow:hidden;border:1px solid #e0e0e0;">
         <div id="rightHeat" style="height:100%;width:0%;background:linear-gradient(90deg,#42a5f5,#7c4dff);"></div>
       </div>
     <button id="voteRight" class="pk-vote-btn right">支持 主播 B</button>
@@ -110,12 +114,12 @@
   <div id="reactionLayer" style="position:fixed; right:20px; top:80px; left:20px; bottom:0; pointer-events:none; overflow:visible; z-index:9999;"></div>
 
   <!-- Chat area for PK viewer (same as regular viewer) -->
-  <aside class="chat-area" style="width:100%; max-width:980px; margin:12px auto 0;">
-    <div id="chatContainer" style="background:rgba(255,255,255,0.03); padding:10px; border-radius:8px;">
-      <div id="messages" style="height:52vh; overflow:auto; margin-bottom:8px;"></div>
-      <div class="chat-input-row" style="display:flex; gap:8px;">
-        <input id="chatInput" placeholder="輸入訊息..." style="flex:1; padding:8px; border-radius:6px; border:1px solid #444; background:transparent; color:#fff;">
-        <button id="sendBtn" disabled style="padding:8px 10px; border-radius:6px;">送出</button>
+  <aside class="chat-area" style="width:100%; max-width:980px; margin:12px auto 0; height:380px;">
+    <div id="chatContainer">
+      <div id="messages" style="flex:1 1 auto; overflow-y:auto; overflow-x:hidden; padding:8px; display:flex; flex-direction:column; gap:8px; box-sizing:border-box; min-height:0;"></div>
+      <div class="chat-input-row">
+        <input id="chatInput" placeholder="輸入訊息...">
+        <button id="sendBtn" disabled>送出</button>
       </div>
     </div>
   </aside>

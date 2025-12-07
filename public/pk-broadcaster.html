@@ -9,17 +9,21 @@
     .pk-side { flex:1; background:#111; color:#fff; border-radius:8px; padding:8px; }
     video { width:100%; height:calc(100vh - 180px); object-fit:cover; background:#000; border-radius:6px; }
     .pk-react-btn {
-      width:46px;
-      height:46px;
+      width:50px;
+      height:50px;
       border-radius:50%;
       border:none;
       font-size:22px;
-      background:rgba(255,255,255,0.08);
+      background:linear-gradient(145deg,#FFB380,#FFCC99);
       color:#fff;
       cursor:pointer;
-      transition:transform 0.15s ease, background 0.15s ease;
+      transition:transform 0.15s ease, box-shadow 0.15s ease;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 4px 10px rgba(255,179,128,0.4);
     }
-    .pk-react-btn:hover { transform:translateY(-2px) scale(1.05); background:rgba(255,255,255,0.18); }
+    .pk-react-btn:hover { transform:translateY(-2px) scale(1.05); box-shadow:0 8px 18px rgba(255,179,128,0.55); }
     .emoji-particle {
       will-change:transform, opacity;
       pointer-events:none;
@@ -34,8 +38,8 @@
   </style>
 </head>
 <body>
-  <h2>PK 對戰</h2>
-  <div id="info">準備中…</div>
+  <h2 style="color:#333; text-align:center;">PK 對戰</h2>
+  <div id="info" style="text-align:center; color:#666; margin-bottom:10px;">準備中…</div>
   <div class="pk-container">
     <div class="pk-side">
       <h3>我方畫面</h3>
@@ -48,19 +52,19 @@
   </div>
   <!-- PK heat + reactions -->
   <div style="display:flex;gap:12px;max-width:980px;margin:12px auto;">
-    <div style="flex:1;text-align:center;color:#fff;">
-      <div id="pkLeftLabel">我方</div>
-      <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:8px;margin:8px 12px;overflow:hidden;">
+    <div style="flex:1;text-align:center;">
+      <div id="pkLeftLabel" style="color:#333; font-weight:600; margin-bottom:4px;">我方</div>
+      <div style="height:14px;background:#f5f5f5;border-radius:8px;margin:8px 12px;overflow:hidden;border:1px solid #e0e0e0;">
         <div id="pkLeftHeat" style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b6b,#ff4081);"></div>
       </div>
-      <div id="pkLeftCount" style="color:#fff;">0</div>
+      <div id="pkLeftCount" style="color:#FF6B35; font-size:20px; font-weight:700;">0</div>
     </div>
-    <div style="flex:1;text-align:center;color:#fff;">
-      <div id="pkRightLabel">對方</div>
-      <div style="height:14px;background:rgba(255,255,255,0.06);border-radius:8px;margin:8px 12px;overflow:hidden;">
+    <div style="flex:1;text-align:center;">
+      <div id="pkRightLabel" style="color:#333; font-weight:600; margin-bottom:4px;">對方</div>
+      <div style="height:14px;background:#f5f5f5;border-radius:8px;margin:8px 12px;overflow:hidden;border:1px solid #e0e0e0;">
         <div id="pkRightHeat" style="height:100%;width:0%;background:linear-gradient(90deg,#42a5f5,#7c4dff);"></div>
       </div>
-      <div id="pkRightCount" style="color:#fff;">0</div>
+      <div id="pkRightCount" style="color:#42a5f5; font-size:20px; font-weight:700;">0</div>
     </div>
   </div>
 
@@ -75,16 +79,18 @@
   
   <!-- chat & info area below videos -->
   <div id="pkChatArea" style="margin-top:12px; display:flex; gap:12px; align-items:flex-start;">
-    <div style="flex:1;">
-      <div id="pkMessages" style="background:rgba(0,0,0,0.6); color:#fff; padding:10px; border-radius:8px; max-height:260px; overflow:auto;"></div>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <input id="pkChatInput" placeholder="輸入訊息..." style="flex:1; padding:8px; border-radius:6px; border:1px solid #444; background:transparent; color:#fff;">
-        <button id="pkSendBtn" style="padding:8px 10px; border-radius:6px;">送出</button>
+    <aside class="chat-area" style="flex:1; max-width:800px;">
+      <div id="chatContainer">
+        <div id="pkMessages" style="flex:1; overflow-y:auto; overflow-x:hidden; padding:8px; display:flex; flex-direction:column; gap:8px; box-sizing:border-box; min-height:0; max-height:280px;"></div>
+        <div class="chat-input-row">
+          <input id="pkChatInput" placeholder="輸入訊息...">
+          <button id="pkSendBtn">送出</button>
+        </div>
       </div>
-    </div>
-    <div style="width:160px; text-align:center; color:#fff;">
-      <div>在線人數</div>
-      <div id="pkViewerCount" style="font-size:24px; font-weight:600; margin-top:6px;">0</div>
+    </aside>
+    <div style="width:160px; text-align:center; background:#fff; padding:16px; border-radius:12px; border:1px solid #e0e0e0;">
+      <div style="color:#666; font-size:14px;">在線人數</div>
+      <div id="pkViewerCount" style="font-size:28px; font-weight:700; margin-top:8px; color:#FF6B35;">0</div>
     </div>
   </div>
 
