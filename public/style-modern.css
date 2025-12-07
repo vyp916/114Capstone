@@ -11,25 +11,25 @@
 body {
   margin: 0;
   padding: 0;
-  background: radial-gradient(circle at top, #1a1a1a 0%, #050505 80%);
+  background: #f5f5f5;
   font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", Arial, sans-serif;
-  color: #eaeaea;
+  color: #333;
   overflow-x: hidden;
 }
 
 h1, h2, h3 {
-  color: #00eaff;
+  color: #FF6B35;
   letter-spacing: 0.5px;
   margin: 0 0 12px;
 }
 
 a {
-  color: #00eaff;
+  color: #FF6B35;
   text-decoration: none;
 }
 
 a:hover {
-  text-shadow: 0 0 6px rgba(0, 234, 255, 0.8);
+  text-shadow: 0 0 6px rgba(255, 107, 53, 0.8);
 }
 
 /* =====================================
@@ -39,8 +39,8 @@ a:hover {
 .container {
   display: flex;
   height: 100vh;
-  background: linear-gradient(135deg, rgba(5,5,5,0.95), rgba(10,10,20,0.95));
-  color: #fff;
+  background: #f5f5f5;
+  color: #333;
 }
 
 /* =====================================
@@ -49,13 +49,13 @@ a:hover {
 
 .sidebar {
   width: 260px;
-  background: radial-gradient(circle at top, #181818 0%, #0d0d0d 70%);
+  background: #ffffff;
   padding: 24px 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  border-right: 1px solid rgba(0, 255, 255, 0.25);
-  box-shadow: 4px 0 18px rgba(0, 255, 255, 0.2);
+  border-right: 1px solid #e0e0e0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
   position: relative;
   z-index: 2;
 }
@@ -71,8 +71,8 @@ a:hover {
   border-radius: 16px;
   object-fit: cover;
   margin-bottom: 8px;
-  border: 2px solid rgba(0, 234, 255, 0.7);
-  box-shadow: 0 0 15px rgba(0, 234, 255, 0.5);
+  border: 2px solid #FF6B35;
+  box-shadow: 0 0 15px rgba(255, 107, 53, 0.3);
 }
 
 .profile-section h3 {
@@ -81,21 +81,22 @@ a:hover {
 }
 
 .profile-section button {
-  background: linear-gradient(90deg, #007bff, #00eaff);
+  background: #FF6B35;
   border: none;
-  padding: 6px 14px;
-  border-radius: 999px;
+  padding: 8px 16px;
+  border-radius: 6px;
   color: white;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(0, 200, 255, 0.6);
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
   transition: 0.25s;
 }
 
 .profile-section button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 0 16px rgba(0, 234, 255, 0.9);
+  transform: translateY(-2px);
+  background: #e55a2a;
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
 }
 
 .sidebar hr {
@@ -109,10 +110,10 @@ a:hover {
   width: 100%;
   margin: 8px 0;
   padding: 11px;
-  background: #181818;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: white;
-  border-radius: 9px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  color: #333;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -124,10 +125,10 @@ a:hover {
 }
 
 .sidebar button:hover {
-  background: #242424;
-  border-color: rgba(0, 255, 255, 0.6);
-  box-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
-  transform: translateY(-1px);
+  background: #e8e8e8;
+  border-color: #FF6B35;
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+  transform: translateY(-2px);
 }
 
 /* 窄螢幕時 sidebar 收窄成上方區塊 */
@@ -161,28 +162,29 @@ a:hover {
 
 button,
 .view-btn {
-  background: linear-gradient(90deg, #008cff, #00eaff);
-  padding: 8px 16px;
-  border-radius: 999px;
+  background: #FF6B35;
+  padding: 10px 20px;
+  border-radius: 8px;
   color: #fff;
   border: none;
   cursor: pointer;
   font-weight: 600;
   letter-spacing: 0.3px;
   transition: 0.25s;
-  box-shadow: 0 0 10px rgba(0, 200, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
 }
 
 button:hover,
 .view-btn:hover {
-  transform: scale(1.04) translateY(-1px);
-  box-shadow: 0 0 18px rgba(0, 255, 255, 0.75);
+  transform: translateY(-2px);
+  background: #e55a2a;
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
 }
 
 button:active,
 .view-btn:active {
-  transform: scale(0.97);
-  box-shadow: 0 0 8px rgba(0, 150, 255, 0.5);
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(255, 107, 53, 0.3);
 }
 
 /* 讓 .view-btn 看起來像卡片下的 action button */
@@ -203,7 +205,7 @@ button:active,
 }
 
 #refreshBtn:hover {
-  background: linear-gradient(90deg, #0d8ff0, #0df0ff);
+  background: #e55a2a;
 }
 
 #refreshBtn:active {
@@ -255,20 +257,20 @@ button:active,
 
 .search-bar input {
   width: 260px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 999px;
-  background: rgba(10,10,10,0.9);
-  color: #fff;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #333;
   font-size: 14px;
   outline: none;
   transition: 0.25s;
 }
 
 .search-bar input:focus {
-  border-color: rgba(0, 234, 255, 0.9);
-  box-shadow: 0 0 8px rgba(0, 234, 255, 0.7);
-  background: rgba(15,15,15,0.95);
+  border-color: #FF6B35;
+  box-shadow: 0 0 8px rgba(255, 107, 53, 0.3);
+  background: #ffffff;
 }
 
 .search-bar button {
@@ -304,13 +306,13 @@ button:active,
 
 .stream-card {
   flex: 0 0 260px;
-  background: radial-gradient(circle at top, rgba(18,18,18,0.95), rgba(7,7,7,0.95));
+  background: #ffffff;
   padding: 14px;
-  border-radius: 14px;
-  box-shadow: 0 0 15px rgba(0, 200, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   text-align: left;
   transition: all 0.3s ease;
-  border: 1px solid rgba(0, 255, 255, 0.25);
+  border: 1px solid #e0e0e0;
   position: relative;
   overflow: hidden;
 }
@@ -319,14 +321,15 @@ button:active,
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top left, rgba(0,255,255,0.15), transparent 60%);
+  background: radial-gradient(circle at top left, rgba(255, 107, 53, 0.08), transparent 60%);
   opacity: 0;
   transition: opacity 0.3s;
 }
 
 .stream-card:hover {
-  transform: translateY(-6px) translateZ(0);
-  box-shadow: 0 0 22px rgba(0, 255, 255, 0.6);
+  transform: translateY(-6px);
+  box-shadow: 0 8px 20px rgba(255, 107, 53, 0.15);
+  border-color: #FF6B35;
 }
 
 .stream-card:hover::before {
@@ -350,13 +353,13 @@ button:active,
 .stream-card h3 {
   margin: 4px 0 4px;
   font-size: 16px;
-  color: #fefefe;
+  color: #333;
 }
 
 .stream-card p {
   margin: 2px 0;
   font-size: 13px;
-  color: #c3c3c3;
+  color: #999;
 }
 
 /* =====================================
@@ -367,7 +370,7 @@ button:active,
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: radial-gradient(circle at top, rgba(0,0,0,0.9), rgba(0,0,0,0.8));
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -379,14 +382,14 @@ button:active,
 }
 
 .modal-content {
-  background: rgba(15,15,15,0.9);
-  padding: 22px 24px;
-  border-radius: 16px;
+  background: #ffffff;
+  padding: 24px 28px;
+  border-radius: 12px;
   width: 400px;
   text-align: center;
-  border: 1px solid rgba(0,255,255,0.35);
-  box-shadow: 0 0 28px rgba(0,255,255,0.55);
-  backdrop-filter: blur(12px);
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  backdrop-filter: none;
   animation: fadeInUp 0.35s ease;
 }
 
@@ -403,11 +406,11 @@ button:active,
 .modal-content select,
 .modal-content textarea {
   width: 100%;
-  padding: 9px 10px;
+  padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(10,10,10,0.95);
-  color: #fff;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  color: #333;
   font-size: 14px;
   margin-bottom: 10px;
   outline: none;
@@ -422,8 +425,8 @@ button:active,
 .modal-content input:focus,
 .modal-content select:focus,
 .modal-content textarea:focus {
-  border-color: rgba(0, 234, 255, 0.9);
-  box-shadow: 0 0 8px rgba(0,234,255,0.75);
+  border-color: #FF6B35;
+  box-shadow: 0 0 8px rgba(255, 107, 53, 0.2);
 }
 
 .modal-content button {
@@ -486,19 +489,19 @@ button:active,
   width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #000;
-  border: 2px solid rgba(0,255,255,0.3);
-  box-shadow: 0 0 24px rgba(0,255,255,0.5);
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* 用在 broadcaster.html 的 video 也套同樣風格 */
+/* 用在 broadcaster.html 的 video 也套同樣紋 */
 video {
   width: 80%;
   max-width: 900px;
-  border-radius: 14px;
-  border: 2px solid rgba(0,255,255,0.3);
-  box-shadow: 0 0 24px rgba(0,255,255,0.45);
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   background: #000;
 }
 
@@ -515,10 +518,10 @@ body > h1 {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: rgba(5,5,5,0.85);
-  border-radius: 16px;
-  border: 1px solid rgba(0,255,255,0.35);
-  box-shadow: 0 0 25px rgba(0,255,255,0.7);
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* RWD：窄螢幕時影片與聊天室上下堆疊 */
@@ -585,23 +588,23 @@ body > h1 {
   height: 32px;
   border-radius: 8px;
   object-fit: cover;
-  border: 2px solid rgba(0,255,255,0.5);
-  box-shadow: 0 0 6px rgba(0,255,255,0.6);
+  border: 2px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .message .text {
-  color: #eee;
-  background: rgba(25,25,25,0.9);
+  color: #333;
+  background: #f5f5f5;
   border-radius: 12px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   max-width: 80%;
   word-wrap: break-word;
   text-align: left;
-  border: 1px solid rgba(0,255,255,0.25);
+  border: 1px solid #e0e0e0;
 }
 
 .message .text strong {
-  color: #99ccff;
+  color: #FF6B35;
 }
 
 .system-message {
@@ -610,10 +613,10 @@ body > h1 {
   text-align: center;
   margin: 4px 0;
   font-size: 0.9em;
-  padding: 4px 10px;
-  background: rgba(0,0,0,0.4);
-  border-radius: 999px;
-  border: 1px dashed rgba(255,255,255,0.15);
+  padding: 6px 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  border: 1px dashed #ddd;
 }
 
 /* chat 輸入區 */
@@ -621,33 +624,33 @@ body > h1 {
   display: flex;
   gap: 8px;
   padding: 8px;
-  background: rgba(0,0,0,0.45);
-  border-radius: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
 }
 
 .chat-input-row input#chatInput {
   flex: 1;
-  padding: 9px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(25,25,25,0.9);
-  color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #ffffff;
+  color: #333;
   font-size: 14px;
   transition: all 0.25s ease;
 }
 
 .chat-input-row input#chatInput:focus {
   outline: none;
-  border-color: rgba(0, 234, 255, 0.9);
-  background: rgba(30,30,30,0.98);
-  box-shadow: 0 0 10px rgba(0,234,255,0.8);
+  border-color: #FF6B35;
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 107, 53, 0.2);
 }
 
 .chat-input-row button#sendBtn {
-  padding: 8px 16px;
-  border-radius: 999px;
+  padding: 10px 16px;
+  border-radius: 8px;
   border: none;
-  background: linear-gradient(90deg, #007bff, #00eaff);
+  background: #FF6B35;
   color: #fff;
   cursor: pointer;
   font-weight: bold;
@@ -656,11 +659,11 @@ body > h1 {
 }
 
 .chat-input-row button#sendBtn:hover {
-  background: linear-gradient(90deg, #006ce0, #04f0ff);
+  background: #e55a2a;
 }
 
 .chat-input-row button#sendBtn:disabled {
-  background: #555;
+  background: #ccc;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -681,13 +684,14 @@ body > h1 {
 }
 
 #endBtn {
-  background: linear-gradient(90deg, #ff3b3b, #ff6b6b);
+  background: #ff4444;
   margin-top: 10px;
-  box-shadow: 0 0 16px rgba(255,0,0,0.6);
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
 }
 
 #endBtn:hover {
-  box-shadow: 0 0 22px rgba(255,50,50,0.9);
+  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4);
+  background: #dd3333;
 }
 
 /* 封面上傳區 */
