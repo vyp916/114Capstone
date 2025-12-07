@@ -485,6 +485,9 @@
             if (event.candidate) socket.emit("candidate", id, event.candidate);
           };
 
+          // 創建一個統一的 MediaStream 包含音訊和視訊
+          const combinedStream = new MediaStream();
+          
           // add original audio tracks from camera FIRST
           const audios = stream.getAudioTracks();
           console.log('[Broadcaster] preparing to add audio tracks, count:', audios ? audios.length : 0);
@@ -493,7 +496,8 @@
           } else {
             audios.forEach(a => {
               console.log('[Broadcaster] ✓ adding audio track:', a.label, 'enabled:', a.enabled, 'muted:', a.muted, 'readyState:', a.readyState);
-              const sender = pc.addTrack(a, stream);
+              combinedStream.addTrack(a); // 添加到統一 stream
+              const sender = pc.addTrack(a, combinedStream); // 使用統一 stream
               console.log('[Broadcaster] ✓ audio track added, sender:', sender);
             });
           }
@@ -524,8 +528,10 @@
           if (currentProcessed) {
             try { 
               console.log('[Broadcaster] 🎥 adding video track:', currentProcessed.label, 'enabled:', currentProcessed.enabled, 'readyState:', currentProcessed.readyState);
-              const sender = pc.addTrack(currentProcessed, processedStream); 
+              combinedStream.addTrack(currentProcessed); // 添加到統一 stream
+              const sender = pc.addTrack(currentProcessed, combinedStream); // 使用統一 stream
               console.log('[Broadcaster] ✅ video track added successfully, sender:', sender);
+              console.log('[Broadcaster] 📦 combinedStream final tracks:', combinedStream.getTracks().map(t => ({ kind: t.kind, label: t.label })));
             } catch (e) { 
               console.error('[Broadcaster] ❌ failed to add video track:', e); 
             }
