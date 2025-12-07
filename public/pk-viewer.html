@@ -345,22 +345,12 @@
             { urls: 'stun:stun3.l.google.com:19302' },
             { urls: 'stun:stun4.l.google.com:19302' },
             {
-              urls: 'turn:numb.viagenie.ca',
+              urls: ['turn:numb.viagenie.ca:3478', 'turn:numb.viagenie.ca:3478?transport=tcp', 'turn:numb.viagenie.ca:5349', 'turn:numb.viagenie.ca:5349?transport=tcp'],
               username: 'webrtc@live.com',
               credential: 'muazkhan'
             },
             {
-              urls: 'turn:openrelay.metered.ca:80',
-              username: 'openrelayproject',
-              credential: 'openrelayproject'
-            },
-            {
-              urls: 'turn:openrelay.metered.ca:443',
-              username: 'openrelayproject',
-              credential: 'openrelayproject'
-            },
-            {
-              urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+              urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'],
               username: 'openrelayproject',
               credential: 'openrelayproject'
             }
