@@ -358,6 +358,7 @@
         peers[id] = pc;
 
         let streamSet = false; // 避免重複設置 srcObject
+        let playAttempted = false; // 避免重複嘗試播放
         
         pc.ontrack = event => {
           console.log('[Viewer] ontrack event received from', id);
@@ -388,22 +389,34 @@
               });
             }
             
-            // 等待有音訊和視訊軌道後再播放（延遲播放避免中斷）
-            setTimeout(() => {
-              const hasAudio = stream.getAudioTracks().length > 0;
-              const hasVideo = stream.getVideoTracks().length > 0;
-              console.log('[Viewer] ready to play - hasAudio:', hasAudio, 'hasVideo:', hasVideo);
+            // 立即嘗試播放（不等待）
+            if (!playAttempted) {
+              playAttempted = true;
               
-              if (hasAudio || hasVideo) {
+              // 嘗試自動播放
+              const tryPlay = () => {
                 video.play().then(() => {
-                  console.log('[Viewer] ✓ video playing with audio, muted:', video.muted, 'volume:', video.volume);
+                  console.log('[Viewer] ✓ video playing, muted:', video.muted, 'volume:', video.volume);
+                  const currentAudios = video.srcObject ? video.srcObject.getAudioTracks() : [];
+                  const currentVideos = video.srcObject ? video.srcObject.getVideoTracks() : [];
+                  console.log('[Viewer] ✓ currently playing - audio tracks:', currentAudios.length, 'video tracks:', currentVideos.length);
                 }).catch(err => {
-                  console.warn('[Viewer] ⚠️ autoplay failed (browser policy):', err.message);
-                  // 如果自動播放失敗（瀏覽器政策），提示用戶點擊播放
-                  alert('請點擊畫面任意處開始播放直播（瀏覽器自動播放限制）');
+                  console.warn('[Viewer] ⚠️ autoplay blocked:', err.message);
+                  // 添加點擊事件監聽器，讓用戶點擊任意處即可播放
+                  const playOnClick = () => {
+                    video.play().then(() => {
+                      console.log('[Viewer] ✓ playing after user interaction');
+                      document.removeEventListener('click', playOnClick);
+                    }).catch(e => console.warn('[Viewer] play failed even after click:', e));
+                  };
+                  document.addEventListener('click', playOnClick, { once: true });
+                  console.log('[Viewer] 💡 waiting for user click to start playback');
                 });
-              }
-            }, 200); // 等待 200ms 讓所有 tracks 到達
+              };
+              
+              // 延遲 100ms 讓 tracks 穩定
+              setTimeout(tryPlay, 100);
+            }
             
           } catch (e) {
             console.error('[Viewer] ❌ ontrack handler failed:', e);

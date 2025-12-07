@@ -487,12 +487,14 @@
 
           // add original audio tracks from camera FIRST
           const audios = stream.getAudioTracks();
+          console.log('[Broadcaster] preparing to add audio tracks, count:', audios ? audios.length : 0);
           if (!audios || !audios.length) {
-            console.warn('[Broadcaster] ⚠️ NO audio tracks available to send!');
+            console.error('[Broadcaster] ❌❌ NO audio tracks available to send! stream:', stream, 'tracks:', stream ? stream.getTracks() : null);
           } else {
             audios.forEach(a => {
-              console.log('[Broadcaster] ✓ adding audio track:', a.label, 'enabled:', a.enabled, 'muted:', a.muted);
-              pc.addTrack(a, stream);
+              console.log('[Broadcaster] ✓ adding audio track:', a.label, 'enabled:', a.enabled, 'muted:', a.muted, 'readyState:', a.readyState);
+              const sender = pc.addTrack(a, stream);
+              console.log('[Broadcaster] ✓ audio track added, sender:', sender);
             });
           }
 
