@@ -357,31 +357,12 @@
         const pc = new RTCPeerConnection(config);
         peers[id] = pc;
 
+        let streamSet = false; // 避免重複設置 srcObject
+        
         pc.ontrack = event => {
           console.log('[Viewer] ontrack event received from', id);
           try {
-            // 直接設置串流並解除靜音
-            video.srcObject = event.streams[0];
-            video.muted = false;
-            video.volume = 1.0;
-            
-            // 確保所有音訊 tracks 都啟用
             const stream = event.streams[0];
-            if (stream && stream.getAudioTracks) {
-              stream.getAudioTracks().forEach(track => {
-                track.enabled = true;
-                console.log('[Viewer] ✓ enabled audio track:', track.label, 'enabled:', track.enabled);
-              });
-            }
-            
-            // 自動播放
-            video.play().then(() => {
-              console.log('[Viewer] ✓ video playing with audio, muted:', video.muted, 'volume:', video.volume);
-            }).catch(err => {
-              console.warn('[Viewer] ⚠️ autoplay failed (browser policy):', err.message);
-              // 如果自動播放失敗（瀏覽器政策），提示用戶點擊播放
-              alert('請點擊畫面任意處開始播放直播（瀏覽器自動播放限制）');
-            });
             
             // Debug: log incoming tracks
             try {
@@ -389,6 +370,41 @@
               const videos = stream && stream.getVideoTracks ? stream.getVideoTracks() : [];
               console.log('[Viewer] tracks received - audio:', audios.length, audios.map(a => ({ label: a.label, enabled: a.enabled, muted: a.muted })), 'video:', videos.length);
             } catch (e) { console.warn('[Viewer] log tracks failed', e); }
+            
+            // 只在第一次收到 track 時設置 srcObject
+            if (!streamSet) {
+              streamSet = true;
+              video.srcObject = stream;
+              video.muted = false;
+              video.volume = 1.0;
+              console.log('[Viewer] ✓ set srcObject, muted=false, volume=1.0');
+            }
+            
+            // 確保所有音訊 tracks 都啟用
+            if (stream && stream.getAudioTracks) {
+              stream.getAudioTracks().forEach(track => {
+                track.enabled = true;
+                console.log('[Viewer] ✓ enabled audio track:', track.label, 'enabled:', track.enabled);
+              });
+            }
+            
+            // 等待有音訊和視訊軌道後再播放（延遲播放避免中斷）
+            setTimeout(() => {
+              const hasAudio = stream.getAudioTracks().length > 0;
+              const hasVideo = stream.getVideoTracks().length > 0;
+              console.log('[Viewer] ready to play - hasAudio:', hasAudio, 'hasVideo:', hasVideo);
+              
+              if (hasAudio || hasVideo) {
+                video.play().then(() => {
+                  console.log('[Viewer] ✓ video playing with audio, muted:', video.muted, 'volume:', video.volume);
+                }).catch(err => {
+                  console.warn('[Viewer] ⚠️ autoplay failed (browser policy):', err.message);
+                  // 如果自動播放失敗（瀏覽器政策），提示用戶點擊播放
+                  alert('請點擊畫面任意處開始播放直播（瀏覽器自動播放限制）');
+                });
+              }
+            }, 200); // 等待 200ms 讓所有 tracks 到達
+            
           } catch (e) {
             console.error('[Viewer] ❌ ontrack handler failed:', e);
           }
