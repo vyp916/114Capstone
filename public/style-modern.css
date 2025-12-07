@@ -552,7 +552,6 @@ body > h1 {
   height: 100%;
   padding: 12px;
   border-radius: 12px;
-  overflow: hidden;
 }
 
 #messages {
@@ -585,8 +584,8 @@ body > h1 {
   align-items: flex-start;
   gap: 8px;
   animation: fadeIn 0.25s ease;
-  max-width: 100%;
-  overflow: hidden;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .message img {
