@@ -383,9 +383,10 @@ class FilterManager {
       const s = document.createElement('style');
       s.id = 'filter-styles';
       s.textContent = `
-      .filter-panel { position: fixed; right: 380px; top: 120px; z-index: 9999; }
-      .filter-panel .filter-toggle { background:#FF6B35;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer }
-      .filter-card { background: rgba(0,0,0,0.8); color:#fff; padding:12px; border-radius:8px; margin-top:8px; width:260px; }
+      .filter-panel { position: absolute; left: 50%; transform: translateX(-50%); bottom: 60px; z-index: 100; display: none; }
+      body:has(#video) .filter-panel { display: block; }
+      .filter-panel .filter-toggle { background:#FF6B35;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;box-shadow: 0 2px 8px rgba(255,107,53,0.3); }
+      .filter-card { background: rgba(0,0,0,0.9); color:#fff; padding:12px; border-radius:8px; margin-bottom:8px; width:260px; }
       .filter-card.hidden { display:none }
       .filter-list button { margin:6px 4px; padding:6px 8px; border-radius:6px; border:none; cursor:pointer }
       .filter-list button:hover { transform:translateY(-2px) }

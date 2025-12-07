@@ -522,6 +522,7 @@ body > h1 {
   border-radius: 12px;
   border: 1px solid #e0e0e0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 /* RWD：窄螢幕時影片與聊天室上下堆疊 */
@@ -556,11 +557,13 @@ body > h1 {
 #messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
+  box-sizing: border-box;
 }
 
 #messages::-webkit-scrollbar {
