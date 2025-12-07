@@ -43,7 +43,7 @@
     </div>
     <div class="pk-side">
       <h3>對方畫面</h3>
-      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="remoteVideo" autoplay playsinline controls></video>
     </div>
   </div>
   <!-- PK heat + reactions -->
@@ -208,6 +208,18 @@
               ],
               iceCandidatePoolSize: 10
             });
+            
+            // 監控 PK 對手連接狀態
+            pc.onconnectionstatechange = () => {
+              console.log('[pk-broadcaster] PK connection state:', pc.connectionState);
+              if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                console.warn('[pk-broadcaster] ⚠️ PK connection lost, attempting reconnect...');
+                // 嘗試重新獲取 partners
+                setTimeout(() => {
+                  if (combinedRoom) socket.emit('pk-get-partners', combinedRoom);
+                }, 1000);
+              }
+            };
             // add local tracks
             const senders = [];
             localStream.getTracks().forEach(t => {
@@ -237,8 +249,21 @@
                   const videoCount = ev.streams[0].getVideoTracks().length;
                   console.log(`[pk-broadcaster] 📦 Partner stream has: audio=${audioCount} video=${videoCount}`);
                   
-                  // 嘗試播放（某些瀏覽器需要）
-                  remoteVideo.play().catch(e => console.warn('remoteVideo play failed:', e));
+                  // 嘗試播放音頻，失敗則靜音播放
+                  remoteVideo.play().then(() => {
+                    console.log('[pk-broadcaster] ✅ remoteVideo playing with audio');
+                  }).catch(e => {
+                    console.warn('[pk-broadcaster] autoplay blocked, trying muted:', e);
+                    remoteVideo.muted = true;
+                    remoteVideo.play().then(() => {
+                      console.log('[pk-broadcaster] ⚠️ remoteVideo playing MUTED - click to unmute');
+                      // 提示使用者
+                      setTimeout(() => {
+                        remoteVideo.muted = false;
+                        console.log('[pk-broadcaster] 🔊 Attempting to unmute after user interaction');
+                      }, 1000);
+                    }).catch(() => {});
+                  });
                 }
               } catch (e) { console.error('[pk-broadcaster] ontrack error:', e); }
             };
@@ -256,6 +281,13 @@
               try {
                 if (!id) return;
                 console.log('[pk-broadcaster] watcher seen:', id);
+                
+                // 如果已經有這個 viewer 的連接，關閉舊的
+                if (viewerPeers[id]) {
+                  console.log('[pk-broadcaster] 🔄 Closing old connection to viewer', id);
+                  try { viewerPeers[id].close(); } catch (e) {}
+                  delete viewerPeers[id];
+                }
                 // create a new pc for this viewer
                 const vpc = new RTCPeerConnection({ 
                   iceServers: [
@@ -382,11 +414,40 @@
             socket.on('pk-candidate', async ({ from, candidate }) => {
               try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
             });
+            
+            // 處理 socket 重連
+            socket.on('reconnect', () => {
+              console.log('[pk-broadcaster] 🔄 Socket reconnected, re-registering...');
+              if (combinedRoom) {
+                socket.emit('broadcaster-join', combinedRoom);
+                socket.emit('join-room', combinedRoom);
+                socket.emit('broadcaster', combinedRoom);
+                // 重新獲取 PK partners
+                setTimeout(() => socket.emit('pk-get-partners', combinedRoom), 500);
+              }
+            });
+            
+            socket.on('disconnect', () => {
+              console.warn('[pk-broadcaster] ⚠️ Socket disconnected');
+            });
 
           } catch (err) {
             console.error('PK init failed', err);
           }
         })();
+        
+        // 監控網絡狀態
+        window.addEventListener('online', () => {
+          console.log('[pk-broadcaster] ✅ Network online');
+          if (combinedRoom) {
+            socket.emit('broadcaster-join', combinedRoom);
+            socket.emit('join-room', combinedRoom);
+            socket.emit('broadcaster', combinedRoom);
+          }
+        });
+        window.addEventListener('offline', () => {
+          console.warn('[pk-broadcaster] ⚠️ Network offline');
+        });
 
         // viewer count updates (for combined room)
         socket.on('viewer-count', count => {

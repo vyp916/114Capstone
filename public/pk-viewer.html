@@ -315,6 +315,20 @@
       return null;
     }
 
+    // 處理主播重連：當主播重新加入時自動重建連接
+    socket.on('broadcaster', ({ roomId, broadcasterId }) => {
+      try {
+        console.log('[pk-viewer] 🔄 Broadcaster reconnected:', broadcasterId, 'in room', roomId);
+        if (roomId !== combinedRoom) return;
+        
+        // 如果這個 broadcaster 之前已經連接過，重新發送 watcher
+        if (peers[broadcasterId] || assigned.slotA === broadcasterId || assigned.slotB === broadcasterId) {
+          console.log('[pk-viewer] ✅ Re-emitting watcher for reconnected broadcaster');
+          socket.emit('watcher');
+        }
+      } catch (e) { console.error('[pk-viewer] broadcaster event error:', e); }
+    });
+
     socket.on('offer', async (id, description) => {
       try {
         console.log('[pk-viewer] offer from', id);
@@ -469,10 +483,25 @@
 
     socket.on('bye', id => {
       try {
-        if (peers[id]) { peers[id].close(); delete peers[id]; }
-        if (assigned.slotA === id) { document.getElementById('videoA').srcObject = null; assigned.slotA = null; }
-        if (assigned.slotB === id) { document.getElementById('videoB').srcObject = null; assigned.slotB = null; }
-      } catch (e) {}
+        console.log('[pk-viewer] ⚠️ Broadcaster disconnected:', id);
+        if (peers[id]) { 
+          peers[id].close(); 
+          delete peers[id]; 
+        }
+        const wasSlotA = assigned.slotA === id;
+        const wasSlotB = assigned.slotB === id;
+        if (wasSlotA) { 
+          document.getElementById('videoA').srcObject = null; 
+          assigned.slotA = null;
+          console.log('[pk-viewer] 🔄 Slot A cleared, waiting for reconnection...');
+        }
+        if (wasSlotB) { 
+          document.getElementById('videoB').srcObject = null; 
+          assigned.slotB = null;
+          console.log('[pk-viewer] 🔄 Slot B cleared, waiting for reconnection...');
+        }
+        // 不刪除 pendingCandidates，以便重連時可以使用
+      } catch (e) { console.error('[pk-viewer] bye handler error:', e); }
     });
 
     // --- chat features (reused from viewer.html) ---
