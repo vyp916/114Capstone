@@ -383,7 +383,7 @@ class FilterManager {
       const s = document.createElement('style');
       s.id = 'filter-styles';
       s.textContent = `
-      .filter-panel { position: absolute; left: 50%; transform: translateX(-50%); bottom: 60px; z-index: 100; display: none; }
+      .filter-panel { position: fixed; left: 50%; transform: translateX(-50%); bottom: 70px; z-index: 1000; display: none; }
       body:has(#video) .filter-panel { display: block; }
       .filter-panel .filter-toggle { background:#FF6B35;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;box-shadow: 0 2px 8px rgba(255,107,53,0.3); }
       .filter-card { background: rgba(0,0,0,0.9); color:#fff; padding:12px; border-radius:8px; margin-bottom:8px; width:260px; }

@@ -552,6 +552,8 @@ body > h1 {
   flex: 1;
   padding: 12px;
   border-radius: 12px;
+  height: 100%;
+  min-height: 0;
 }
 
 #messages {
@@ -564,6 +566,7 @@ body > h1 {
   gap: 8px;
   margin-bottom: 8px;
   box-sizing: border-box;
+  min-height: 0;
 }
 
 #messages::-webkit-scrollbar {
@@ -634,6 +637,10 @@ body > h1 {
   padding: 8px;
   background: #f9f9f9;
   border-radius: 8px;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 .chat-input-row input#chatInput {
