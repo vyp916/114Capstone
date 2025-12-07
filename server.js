@@ -488,10 +488,7 @@ io.on("connection", socket => {
   });
   
   // WebRTC signaling: 點對點傳送（不限制成一個寶間，因為已經由 id 指定對象）
-  socket.on("offer", (id, message) => {
-    const senderInfo = socketToUser.get(socket.id) || { socketId: socket.id, userId: null, username: '\u672a知\u4f7f\u7528\u8005' };
-    socket.to(id).emit("offer", socket.id, message, senderInfo);
-  });
+  socket.on("offer", (id, message) => socket.to(id).emit("offer", socket.id, message));
   socket.on("answer", (id, message) => socket.to(id).emit("answer", socket.id, message));
   socket.on("candidate", (id, message) => socket.to(id).emit("candidate", socket.id, message));
   socket.on("disconnect", () => socket.broadcast.emit("bye", socket.id));
@@ -510,6 +507,18 @@ io.on("connection", socket => {
     socket.join(roomId);
     io.to(roomId).emit("system-message", "有個人加入直播，你好！");
     updateViewerCount(roomId);
+    
+    // If this is a PK combined room, send broadcaster info to the joining socket
+    if (roomBroadcasters.has(roomId)) {
+      const broadcasterIds = Array.from(roomBroadcasters.get(roomId));
+      const broadcasterInfos = broadcasterIds.map(bid => {
+        const info = socketToUser.get(bid) || { socketId: bid, userId: null, username: '未知使用者' };
+        return { socketId: bid, ...info };
+      });
+      socket.emit('broadcaster-info', { roomId, broadcasters: broadcasterInfos });
+      console.log('[server] Sent broadcaster info to viewer in room', roomId, ':', broadcasterInfos.map(b => b.username));
+    }
+    
     // ensure reaction map exists for this room
     if (!roomReactions.has(roomId)) roomReactions.set(roomId, new Map());
     // send current reaction stats to the joining client

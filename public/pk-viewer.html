@@ -249,6 +249,20 @@
       };
     }
 
+    // 接收 server 發來的 broadcaster 信息
+    socket.on('broadcaster-info', ({ roomId, broadcasters }) => {
+      try {
+        console.log('[pk-viewer] Received broadcaster info:', broadcasters);
+        if (broadcasters && Array.isArray(broadcasters)) {
+          broadcasters.forEach(bInfo => {
+            peerToInfo[bInfo.socketId] = bInfo;
+            console.log('[pk-viewer] Stored broadcaster', bInfo.socketId, ':', bInfo.username);
+          });
+          renderVoteUI();
+        }
+      } catch (e) { console.error('[pk-viewer] broadcaster-info error:', e); }
+    });
+
     function renderVoteUI() {
       if (!leftLabelEl || !rightLabelEl) return;
       
@@ -454,14 +468,9 @@
       } catch (e) { console.error('[pk-viewer] broadcaster event error:', e); }
     });
 
-    socket.on('offer', async (id, description, senderInfo) => {
+    socket.on('offer', async (id, description) => {
       try {
-        console.log('[pk-viewer] offer from', id, 'info:', senderInfo);
-        // Store broadcaster user info for vote UI rendering
-        if (senderInfo) {
-          peerToInfo[id] = senderInfo;
-          console.log('[pk-viewer] Stored broadcaster info:', senderInfo.username, '(' + senderInfo.userId + ')');
-        }
+        console.log('[pk-viewer] offer from', id);
         // create pc per broadcaster
         if (peers[id]) {
           try { peers[id].close(); } catch (e) {}
