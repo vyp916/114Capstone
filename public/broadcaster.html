@@ -507,9 +507,19 @@
               console.log('[Broadcaster] ✓ adding audio track:', a.label, 'enabled:', a.enabled, 'muted:', a.muted, 'readyState:', a.readyState);
               combinedStream.addTrack(a); // 添加到統一 stream
               const sender = pc.addTrack(a, combinedStream); // 使用統一 stream
-              console.log('[Broadcaster] ✓ audio track added, sender:', sender);
+              console.log('[Broadcaster] ✓ audio sender created:', {
+                track: { id: a.id, enabled: a.enabled, muted: a.muted, readyState: a.readyState },
+                senderParams: sender.getParameters?.()
+              });
             });
           }
+          
+          // 診斷：檢查當前的 senders 和軌道
+          const sendersAfterAudio = pc.getSenders();
+          console.log('[Broadcaster] 📋 After adding audio - Total senders:', sendersAfterAudio.length);
+          sendersAfterAudio.forEach((s, i) => {
+            console.log(`[Broadcaster]   sender[${i}]: kind=${s.track?.kind}, enabled=${s.track?.enabled}, readyState=${s.track?.readyState}`);
+          });
 
           // then add video track
           console.log('[Broadcaster] 🎥 preparing to add video track...');
@@ -554,6 +564,18 @@
             });
           }
 
+          // 最終診斷：檢查所有已添加的 senders
+          const allSenders = pc.getSenders();
+          console.log('[Broadcaster] 📋 FINAL RTCRtpSenders before offer:', allSenders.length);
+          allSenders.forEach((sender, i) => {
+            const track = sender.track;
+            if (track) {
+              console.log(`[Broadcaster]   [${i}] ${track.kind}: id=${track.id}, enabled=${track.enabled}, readyState=${track.readyState}, muted=${track.muted}`);
+            } else {
+              console.warn(`[Broadcaster]   [${i}] NO TRACK (sender exists but track is null)`);
+            }
+          });
+          
           // create and send offer
           try {
             console.log('[Broadcaster] creating offer for', id);
