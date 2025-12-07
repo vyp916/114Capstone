@@ -17,7 +17,7 @@
         </div>
         <h2 id="streamTitle">載入中...</h2>
         <p id="streamDesc"></p>
-          <video id="video" autoplay playsinline controls muted></video>
+          <video id="video" autoplay playsinline controls></video>
           <!-- reactions (moved to PK pages) -->
             <!-- === Reactions (恢復非 PK 觀看端互動) === -->
             <div id="reactionBar" style="margin:10px 0 4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -383,9 +383,9 @@
             if (!streamSet) {
               streamSet = true;
               video.srcObject = stream;
-              video.muted = true; // 先靜音以確保自動播放成功
+              video.muted = false; // 默認不靜音，直接播放聲音
               video.volume = 1.0;
-              console.log('[Viewer] ✓ set srcObject, muted=true (for autoplay), volume=1.0');
+              console.log('[Viewer] ✓ set srcObject, muted=false, volume=1.0');
             }
             
             // 確保所有音訊 tracks 都啟用
@@ -429,15 +429,21 @@
                   console.error('[Viewer] ❌ no srcObject set on video element!');
                 }
                 
-                // 先用 muted 模式播放（瀏覽器一定會允許）
+                // 播放（帶聲音）
                 video.play().then(() => {
-                  console.log('[Viewer] ✓ video playing (muted), muted:', video.muted, 'volume:', video.volume);
+                  console.log('[Viewer] ✓ video playing with audio, muted:', video.muted, 'volume:', video.volume);
                   const currentAudios = video.srcObject ? video.srcObject.getAudioTracks() : [];
                   const currentVideos = video.srcObject ? video.srcObject.getVideoTracks() : [];
                   console.log('[Viewer] ✓ currently playing - audio tracks:', currentAudios.length, 'video tracks:', currentVideos.length);
-                  console.log('[Viewer] 🔊 請用戶透過 video controls 中的喇叭按鈕解除靜音');
                 }).catch(err => {
-                  console.error('[Viewer] ❌ even muted autoplay failed:', err.message);
+                  console.warn('[Viewer] ⚠️ autoplay with sound blocked, trying muted:', err.message);
+                  // 如果帶聲音的自動播放被阻止，退回到靜音播放
+                  video.muted = true;
+                  video.play().then(() => {
+                    console.log('[Viewer] ✓ playing muted (browser restriction), user can unmute via controls');
+                  }).catch(err2 => {
+                    console.error('[Viewer] ❌ even muted playback failed:', err2.message);
+                  });
                   // 添加點擊事件監聽器
                   const playOnClick = () => {
                     video.play().then(() => {
@@ -466,12 +472,15 @@
                     console.log('[Viewer] 🔍 stream tracks at timeout:', s.getTracks().map(t => ({ kind: t.kind, label: t.label })));
                     
                     playAttempted = true;
+                    video.muted = false; // 嘗試帶聲音播放
                     video.play().then(() => {
-                      console.log('[Viewer] ✓ timeout playback started');
-                      // 3秒後嘗試解除靜音
-                      setTimeout(() => { video.muted = false; }, 3000);
+                      console.log('[Viewer] ✓ timeout playback started with audio');
                     }).catch(err => {
-                      console.error('[Viewer] ❌ timeout playback failed:', err.message);
+                      console.warn('[Viewer] ⚠️ timeout playback with audio failed, trying muted:', err.message);
+                      video.muted = true;
+                      video.play().catch(err2 => {
+                        console.error('[Viewer] ❌ timeout muted playback also failed:', err2.message);
+                      });
                     });
                   }
                 }
