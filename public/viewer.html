@@ -17,11 +17,7 @@
         </div>
         <h2 id="streamTitle">載入中...</h2>
         <p id="streamDesc"></p>
-          <video id="video" autoplay playsinline controls muted></video>
-          <button id="unmuteBtn" style="position:absolute; right:16px; bottom:16px; z-index:999; padding:8px 10px; border-radius:6px; background:#222;color:#fff;border:none;display:none;">解除靜音 🔊</button>
-          <div id="audioHint" style="position:absolute; left:16px; bottom:16px; z-index:999; padding:6px 10px; border-radius:6px; background:rgba(0,0,0,0.65); color:#fff; font-size:12px; display:none;">
-            若沒聲音，點「解除靜音」，或確認麥克風有傳入
-          </div>
+          <video id="video" autoplay playsinline controls></video>
           <!-- reactions (moved to PK pages) -->
             <!-- === Reactions (恢復非 PK 觀看端互動) === -->
             <div id="reactionBar" style="margin:10px 0 4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -343,7 +339,6 @@
   };
   const peers = {}; // map of RTCPeerConnection by broadcaster socket id
   const pendingCandidates = {}; // store candidates that arrive before pc is created
-  let userUnmuted = false; // 使用者是否已手動解除靜音（避免後續 ontrack 把 muted 改回去）
   // 不再使用舊的 watcher 機制，已改用 viewer-ready
 
     socket.on("offer", async (id, description) => {
@@ -363,67 +358,40 @@
         peers[id] = pc;
 
         pc.ontrack = event => {
+          console.log('[Viewer] ontrack event received from', id);
           try {
-            // 僅在尚未手動解除靜音時預設靜音，避免後續 ontrack 覆蓋使用者選擇
-            if (!userUnmuted) video.muted = true;
+            // 直接設置串流並解除靜音
             video.srcObject = event.streams[0];
-            video.play().catch(() => {});
+            video.muted = false;
+            video.volume = 1.0;
+            
+            // 確保所有音訊 tracks 都啟用
+            const stream = event.streams[0];
+            if (stream && stream.getAudioTracks) {
+              stream.getAudioTracks().forEach(track => {
+                track.enabled = true;
+                console.log('[Viewer] ✓ enabled audio track:', track.label, 'enabled:', track.enabled);
+              });
+            }
+            
+            // 自動播放
+            video.play().then(() => {
+              console.log('[Viewer] ✓ video playing with audio, muted:', video.muted, 'volume:', video.volume);
+            }).catch(err => {
+              console.warn('[Viewer] ⚠️ autoplay failed (browser policy):', err.message);
+              // 如果自動播放失敗（瀏覽器政策），提示用戶點擊播放
+              alert('請點擊畫面任意處開始播放直播（瀏覽器自動播放限制）');
+            });
+            
             // Debug: log incoming tracks
             try {
-              const audios = event.streams[0] && event.streams[0].getAudioTracks ? event.streams[0].getAudioTracks() : [];
-              const videos = event.streams[0] && event.streams[0].getVideoTracks ? event.streams[0].getVideoTracks() : [];
-              console.log('[Viewer] ontrack audio:', audios.length, audios.map(a => ({ label: a.label, enabled: a.enabled, muted: a.muted })), 'video:', videos.length);
+              const audios = stream && stream.getAudioTracks ? stream.getAudioTracks() : [];
+              const videos = stream && stream.getVideoTracks ? stream.getVideoTracks() : [];
+              console.log('[Viewer] tracks received - audio:', audios.length, audios.map(a => ({ label: a.label, enabled: a.enabled, muted: a.muted })), 'video:', videos.length);
             } catch (e) { console.warn('[Viewer] log tracks failed', e); }
-
-            // 不論是否立即偵測到音軌，都讓使用者可按下解除靜音；並再次檢查音軌狀態
-            const unmuteBtn = document.getElementById('unmuteBtn');
-            if (unmuteBtn) {
-              unmuteBtn.style.display = 'block';
-              unmuteBtn.onclick = () => {
-                try {
-                  video.muted = false;
-                  video.volume = 1.0;
-                  // 強制啟用所有音訊 tracks（即使 track.muted 是唯讀，enabled 可改）
-                  const stream = video.srcObject;
-                  if (stream && stream.getAudioTracks) {
-                    stream.getAudioTracks().forEach(track => {
-                      track.enabled = true;
-                      console.log('[Viewer] enabled audio track:', track.label);
-                    });
-                  }
-                  video.play().then(() => {
-                    console.log('[Viewer] video playing, muted:', video.muted, 'volume:', video.volume);
-                    // 嘗試觸發 video controls 的靜音按鈕以同步 UI（灰色喇叭問題）
-                    setTimeout(() => {
-                      try {
-                        // 再次確保 muted 為 false
-                        if (video.muted) {
-                          video.muted = false;
-                          console.log('[Viewer] re-applied muted=false');
-                        }
-                      } catch (e) {}
-                    }, 100);
-                  }).catch(err => {
-                    console.warn('[Viewer] play failed:', err);
-                  });
-                  unmuteBtn.style.display = 'none';
-                  userUnmuted = true;
-                } catch (e) {
-                  console.error('[Viewer] unmute failed:', e);
-                }
-              };
-              // 500ms 後重新檢查是否存在音軌，若有則保持按鈕可用
-              setTimeout(() => {
-                try {
-                  const s = video.srcObject;
-                  const hasAudioLater = s && s.getAudioTracks && s.getAudioTracks().length > 0;
-                  if (hasAudioLater) {
-                    unmuteBtn.style.display = 'block';
-                  }
-                } catch (e) {}
-              }, 500);
-            }
-          } catch (e) {}
+          } catch (e) {
+            console.error('[Viewer] ❌ ontrack handler failed:', e);
+          }
         };
 
         pc.onicecandidate = evt => {
