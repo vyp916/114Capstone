@@ -338,6 +338,13 @@
             video.muted = true;
             video.srcObject = event.streams[0];
             video.play().catch(() => {});
+            // Debug: log incoming tracks
+            try {
+              const audios = event.streams[0] && event.streams[0].getAudioTracks ? event.streams[0].getAudioTracks() : [];
+              const videos = event.streams[0] && event.streams[0].getVideoTracks ? event.streams[0].getVideoTracks() : [];
+              console.log('[Viewer] ontrack audio:', audios.length, audios.map(a => ({ label: a.label, enabled: a.enabled, muted: a.muted })), 'video:', videos.length);
+            } catch (e) { console.warn('[Viewer] log tracks failed', e); }
+
             // 不論是否立即偵測到音軌，都讓使用者可按下解除靜音；並再次檢查音軌狀態
             const unmuteBtn = document.getElementById('unmuteBtn');
             if (unmuteBtn) {

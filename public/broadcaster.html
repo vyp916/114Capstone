@@ -399,6 +399,12 @@
       .then(async stream => {
   // camera opened
 
+        // Debug: log audio tracks availability
+        try {
+          const audios = stream.getAudioTracks();
+          console.log('[Broadcaster] audio tracks:', audios.length, audios.map(a => ({ label: a.label, enabled: a.enabled, muted: a.muted })));
+        } catch (e) { console.warn('[Broadcaster] cannot inspect audio tracks', e); }
+
         // Create a hidden source video element that plays the raw camera stream.
         // FilterManager needs a video element that contains the RAW frames to draw into canvas.
         const sourceVideo = document.createElement('video');
@@ -451,7 +457,11 @@
           let currentProcessed = processedStream.getVideoTracks()[0];
 
           // add original audio tracks from camera
-          stream.getAudioTracks().forEach(a => pc.addTrack(a, stream));
+          const audios = stream.getAudioTracks();
+          if (!audios || !audios.length) {
+            console.warn('[Broadcaster] no audio tracks to send');
+          }
+          audios.forEach(a => pc.addTrack(a, stream));
 
           pc.onicecandidate = event => {
             if (event.candidate) socket.emit("candidate", id, event.candidate);
