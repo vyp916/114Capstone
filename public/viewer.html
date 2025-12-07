@@ -18,9 +18,6 @@
         <h2 id="streamTitle">載入中...</h2>
         <p id="streamDesc"></p>
           <video id="video" autoplay playsinline controls muted></video>
-          <div id="clickToUnmute" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:#fff;padding:20px 40px;border-radius:10px;cursor:pointer;font-size:18px;display:none;z-index:1000;text-align:center;">
-            🔊 點擊開啟聲音<br><span style="font-size:14px;opacity:0.8;">Click to unmute</span>
-          </div>
           <!-- reactions (moved to PK pages) -->
             <!-- === Reactions (恢復非 PK 觀看端互動) === -->
             <div id="reactionBar" style="margin:10px 0 4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -438,29 +435,7 @@
                   const currentAudios = video.srcObject ? video.srcObject.getAudioTracks() : [];
                   const currentVideos = video.srcObject ? video.srcObject.getVideoTracks() : [];
                   console.log('[Viewer] ✓ currently playing - audio tracks:', currentAudios.length, 'video tracks:', currentVideos.length);
-                  
-                  // 顯示點擊解除靜音的提示
-                  const unmuteOverlay = document.getElementById('clickToUnmute');
-                  if (unmuteOverlay) {
-                    unmuteOverlay.style.display = 'block';
-                    unmuteOverlay.onclick = () => {
-                      video.muted = false;
-                      unmuteOverlay.style.display = 'none';
-                      console.log('[Viewer] ✓ unmuted by user click');
-                    };
-                    
-                    // 3秒後自動嘗試解除靜音
-                    setTimeout(() => {
-                      video.muted = false;
-                      console.log('[Viewer] ✓ auto-unmuted after 3s');
-                      // 如果成功解除靜音，隱藏提示
-                      setTimeout(() => {
-                        if (!video.muted) {
-                          unmuteOverlay.style.display = 'none';
-                        }
-                      }, 500);
-                    }, 3000);
-                  }
+                  console.log('[Viewer] 🔊 請用戶透過 video controls 中的喇叭按鈕解除靜音');
                 }).catch(err => {
                   console.error('[Viewer] ❌ even muted autoplay failed:', err.message);
                   // 添加點擊事件監聽器
