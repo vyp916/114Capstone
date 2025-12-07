@@ -331,15 +331,18 @@
   socket.emit("watcher");
 
     socket.on("offer", async (id, description) => {
+      console.log('[Viewer] ⬇️ received offer from broadcaster', id);
       try {
         // if an existing pc exists for this id, close it to avoid state conflicts
         if (peers[id]) {
+          console.log('[Viewer] closing existing peer for', id);
           try { peers[id].close(); } catch (e) {}
           delete peers[id];
           // clear video preview if it was attached to old pc
           try { if (video.srcObject) video.srcObject = null; } catch (e) {}
         }
 
+        console.log('[Viewer] creating new RTCPeerConnection');
         const pc = new RTCPeerConnection(config);
         peers[id] = pc;
 
@@ -417,20 +420,27 @@
           delete pendingCandidates[id];
         }
 
+        console.log('[Viewer] setting remote description');
         await pc.setRemoteDescription(description);
+        console.log('[Viewer] creating answer');
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-  socket.emit('answer', id, pc.localDescription);
+        console.log('[Viewer] sending answer to', id);
+        socket.emit('answer', id, pc.localDescription);
       } catch (err) {
-        console.error('Error handling offer:', err);
+        console.error('[Viewer] ❌ Error handling offer:', err);
       }
     });
 
     socket.on('candidate', (id, candidate) => {
       const pc = peers[id];
       if (pc) {
-        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(()=>{});
+        console.log('[Viewer] adding ICE candidate from', id);
+        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(err => {
+          console.warn('[Viewer] failed to add ICE candidate:', err);
+        });
       } else {
+        console.log('[Viewer] storing ICE candidate for future peer', id);
         pendingCandidates[id] = pendingCandidates[id] || [];
         pendingCandidates[id].push(candidate);
       }

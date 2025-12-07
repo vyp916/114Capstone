@@ -133,9 +133,7 @@
 
     document.getElementById("roomCode").textContent = roomId;
 
-    // 在線人數更新事件
-    socket.emit("broadcaster-join", roomId);
-    // join chat room as host
+    // join chat room as host (但不要立即 broadcaster-join，等 getUserMedia 成功)
     socket.emit('join-room', roomId);
     // throttle viewer count UI updates to avoid rapid DOM churn (max once per 2s)
     let _lastViewerUpdate = 0;
@@ -468,24 +466,28 @@
 
         // 統一的建立 peer connection 函數
         async function createPeerConnection(id) {
+          console.log('[Broadcaster] creating peer connection for', id);
           const pc = new RTCPeerConnection(config);
           peerConnections[id] = pc;
-          let currentProcessed = processedStream.getVideoTracks()[0];
-
-          // add original audio tracks from camera
-          const audios = stream.getAudioTracks();
-          if (!audios || !audios.length) {
-            console.warn('[Broadcaster] no audio tracks to send');
-          }
-          audios.forEach(a => {
-            console.log('[Broadcaster] adding audio track:', a.label, 'enabled:', a.enabled);
-            pc.addTrack(a, stream);
-          });
 
           pc.onicecandidate = event => {
             if (event.candidate) socket.emit("candidate", id, event.candidate);
           };
 
+          // add original audio tracks from camera FIRST
+          const audios = stream.getAudioTracks();
+          if (!audios || !audios.length) {
+            console.warn('[Broadcaster] ⚠️ NO audio tracks available to send!');
+          } else {
+            audios.forEach(a => {
+              console.log('[Broadcaster] ✓ adding audio track:', a.label, 'enabled:', a.enabled, 'muted:', a.muted);
+              pc.addTrack(a, stream);
+            });
+          }
+
+          // then add video track
+          let currentProcessed = processedStream.getVideoTracks()[0];
+          
           // helper: wait briefly for processedStream to expose a video track
           const waitForTrack = async (timeout = 3000) => {
             const start = Date.now();
@@ -498,25 +500,58 @@
           };
 
           // try immediate, else wait a short time
-          currentProcessed = currentProcessed || await waitForTrack(3000);
+          if (!currentProcessed) {
+            console.log('[Broadcaster] waiting for processed video track...');
+            currentProcessed = await waitForTrack(3000);
+          }
+          
           if (currentProcessed) {
-            try { pc.addTrack(currentProcessed, processedStream); } catch (e) { console.warn('failed to add processed track'); }
+            try { 
+              pc.addTrack(currentProcessed, processedStream); 
+              console.log('[Broadcaster] ✓ added video track');
+            } catch (e) { 
+              console.warn('[Broadcaster] failed to add video track:', e); 
+            }
           } else {
-            console.warn('no processed video track for watcher', id);
+            console.warn('[Broadcaster] ⚠️ no processed video track available for', id);
           }
 
+          // create and send offer
           try {
+            console.log('[Broadcaster] creating offer for', id);
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
+            console.log('[Broadcaster] sending offer to', id);
             socket.emit('offer', id, pc.localDescription);
           } catch (e) {
-            console.error('failed to create/send offer to', id);
+            console.error('[Broadcaster] ❌ failed to create/send offer to', id, e);
           }
         }
 
-        socket.on("answer", (id, description) => peerConnections[id].setRemoteDescription(description));
-        socket.on("candidate", (id, candidate) => peerConnections[id].addIceCandidate(new RTCIceCandidate(candidate)));
+        socket.on("answer", (id, description) => {
+          console.log('[Broadcaster] ⬇️ received answer from', id);
+          if (peerConnections[id]) {
+            peerConnections[id].setRemoteDescription(description).then(() => {
+              console.log('[Broadcaster] ✓ set remote description from answer');
+            }).catch(err => {
+              console.error('[Broadcaster] ❌ failed to set remote description:', err);
+            });
+          } else {
+            console.warn('[Broadcaster] ⚠️ received answer but no peer connection for', id);
+          }
+        });
+        
+        socket.on("candidate", (id, candidate) => {
+          console.log('[Broadcaster] adding ICE candidate from viewer', id);
+          if (peerConnections[id]) {
+            peerConnections[id].addIceCandidate(new RTCIceCandidate(candidate)).catch(err => {
+              console.warn('[Broadcaster] failed to add ICE candidate:', err);
+            });
+          }
+        });
+        
         socket.on("bye", id => {
+          console.log('[Broadcaster] viewer disconnected:', id);
           if (peerConnections[id]) {
             peerConnections[id].close();
             delete peerConnections[id];
