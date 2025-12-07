@@ -86,6 +86,11 @@
     </div>
   </div>
 
+  <div style="max-width:980px;margin:10px auto;display:flex;gap:12px;align-items:center;">
+    <button id="unmuteAll" style="padding:6px 12px;border-radius:6px;border:1px solid #FF6B35;background:#FFCC99;color:#000;cursor:pointer;font-weight:600;">🔊 點此啟用兩邊聲音</button>
+    <span style="color:#666;font-size:13px;">如瀏覽器攔截自動播放，先靜音播放，點一次啟用音訊。</span>
+  </div>
+
   <!-- PK vote / heat UI -->
   <div style="display:flex; gap:12px; margin:12px 0; max-width:980px; margin-left:auto; margin-right:auto;">
     <div style="flex:1; text-align:center;">
@@ -143,6 +148,19 @@
     let rightOwnerId = rightOwnerParam;
     let latestCounts = {};
     let toastTimer = null;
+    let userUnmuted = false; // user toggles to hear both sides
+
+    const forcePlay = async (videoEl, label) => {
+      if (!videoEl) return;
+      // start muted to satisfy autoplay, then optionally unmute if user requested
+      videoEl.muted = !userUnmuted;
+      try {
+        await videoEl.play();
+        console.log(`[pk-viewer] ✅ ${label} playing (${videoEl.muted ? 'muted' : 'with sound'})`);
+      } catch (err) {
+        console.warn(`[pk-viewer] ⚠️ ${label} play failed:`, err);
+      }
+    };
   // 初始未取得左右主播 ID 前，先禁用投票按鈕避免誤觸
   if (voteLeftBtn) voteLeftBtn.disabled = true;
   if (voteRightBtn) voteRightBtn.disabled = true;
@@ -162,6 +180,25 @@
     socket.on('viewer-count', count => {
       try { const vc = document.getElementById('viewerCount'); if (vc) vc.textContent = String(count); } catch (e) {}
     });
+
+    // 啟用音訊
+    const unmuteBtn = document.getElementById('unmuteAll');
+    if (unmuteBtn) {
+      unmuteBtn.onclick = () => {
+        userUnmuted = true;
+        const vA = document.getElementById('videoA');
+        const vB = document.getElementById('videoB');
+        [vA, vB].forEach((v, idx) => {
+          if (!v) return;
+          v.muted = false;
+          v.play().then(() => {
+            console.log(`[pk-viewer] ✅ video${idx === 0 ? 'A' : 'B'} unmuted and playing`);
+          }).catch(err => {
+            console.warn(`[pk-viewer] ⚠️ video${idx === 0 ? 'A' : 'B'} play after unmute failed:`, err);
+          });
+        });
+      };
+    }
 
     // 分享連結
     const shareBtn = document.getElementById('shareBtn');
@@ -328,19 +365,7 @@
         const resolvedLeftOwner = leftOwnerParam || leftOwnerId || peerId;
         leftOwnerId = resolvedLeftOwner;
         peerToOwner[peerId] = resolvedLeftOwner;
-        // 嘗試自動播放，失敗則靜音後再試
-        videoA.muted = false;
-        videoA.play().then(() => {
-          console.log('[pk-viewer] ✅ videoA playing successfully (with sound)');
-        }).catch(err => {
-          console.log('[pk-viewer] videoA autoplay blocked, trying muted...');
-          videoA.muted = true;
-          videoA.play().then(() => {
-            console.log('[pk-viewer] ✅ videoA playing (muted - click to unmute)');
-          }).catch(err2 => {
-            console.warn('[pk-viewer] ⚠️ videoA play failed:', err2);
-          });
-        });
+        forcePlay(videoA, 'videoA');
         renderVoteUI();
         return 'A';
       }
@@ -353,19 +378,7 @@
         const resolvedRightOwner = rightOwnerParam || rightOwnerId || peerId;
         rightOwnerId = resolvedRightOwner;
         peerToOwner[peerId] = resolvedRightOwner;
-        // 嘗試自動播放，失敗則靜音後再試
-        videoB.muted = false;
-        videoB.play().then(() => {
-          console.log('[pk-viewer] ✅ videoB playing successfully (with sound)');
-        }).catch(err => {
-          console.log('[pk-viewer] videoB autoplay blocked, trying muted...');
-          videoB.muted = true;
-          videoB.play().then(() => {
-            console.log('[pk-viewer] ✅ videoB playing (muted - click to unmute)');
-          }).catch(err2 => {
-            console.warn('[pk-viewer] ⚠️ videoB play failed:', err2);
-          });
-        });
+        forcePlay(videoB, 'videoB');
         renderVoteUI();
         return 'B';
       }
