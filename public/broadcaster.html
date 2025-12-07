@@ -499,6 +499,9 @@
           }
 
           // then add video track
+          console.log('[Broadcaster] 🎥 preparing to add video track...');
+          console.log('[Broadcaster] 📊 processedStream tracks:', processedStream ? processedStream.getTracks().map(t => ({ kind: t.kind, label: t.label, enabled: t.enabled, readyState: t.readyState })) : 'null');
+          
           let currentProcessed = processedStream.getVideoTracks()[0];
           
           // helper: wait briefly for processedStream to expose a video track
@@ -514,19 +517,26 @@
 
           // try immediate, else wait a short time
           if (!currentProcessed) {
-            console.log('[Broadcaster] waiting for processed video track...');
+            console.log('[Broadcaster] ⏳ waiting for processed video track...');
             currentProcessed = await waitForTrack(3000);
           }
           
           if (currentProcessed) {
             try { 
-              pc.addTrack(currentProcessed, processedStream); 
-              console.log('[Broadcaster] ✓ added video track');
+              console.log('[Broadcaster] 🎥 adding video track:', currentProcessed.label, 'enabled:', currentProcessed.enabled, 'readyState:', currentProcessed.readyState);
+              const sender = pc.addTrack(currentProcessed, processedStream); 
+              console.log('[Broadcaster] ✅ video track added successfully, sender:', sender);
             } catch (e) { 
-              console.warn('[Broadcaster] failed to add video track:', e); 
+              console.error('[Broadcaster] ❌ failed to add video track:', e); 
             }
           } else {
-            console.warn('[Broadcaster] ⚠️ no processed video track available for', id);
+            console.error('[Broadcaster] ❌❌ NO processed video track available for viewer', id);
+            console.error('[Broadcaster] 🔍 processedStream state:', {
+              stream: processedStream,
+              tracks: processedStream ? processedStream.getTracks() : null,
+              videoTracks: processedStream ? processedStream.getVideoTracks() : null,
+              active: processedStream ? processedStream.active : null
+            });
           }
 
           // create and send offer
