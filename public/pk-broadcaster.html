@@ -190,6 +190,14 @@
               iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' },
+                {
+                  urls: 'turn:numb.viagenie.ca',
+                  username: 'webrtc@live.com',
+                  credential: 'muazkhan'
+                },
                 {
                   urls: 'turn:openrelay.metered.ca:80',
                   username: 'openrelayproject',
@@ -206,7 +214,8 @@
                   credential: 'openrelayproject'
                 }
               ],
-              iceCandidatePoolSize: 10
+              iceCandidatePoolSize: 20,
+              iceTransportPolicy: 'all'
             });
             
             // 監控 PK 對手連接狀態
@@ -293,6 +302,14 @@
                   iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    {
+                      urls: 'turn:numb.viagenie.ca',
+                      username: 'webrtc@live.com',
+                      credential: 'muazkhan'
+                    },
                     {
                       urls: 'turn:openrelay.metered.ca:80',
                       username: 'openrelayproject',
@@ -309,7 +326,8 @@
                       credential: 'openrelayproject'
                     }
                   ],
-                  iceCandidatePoolSize: 10
+                  iceCandidatePoolSize: 20,
+                  iceTransportPolicy: 'all'
                 });
                 viewerPeers[id] = vpc;
                 // add local tracks (camera/audio)
