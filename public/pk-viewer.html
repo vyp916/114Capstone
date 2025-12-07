@@ -78,11 +78,11 @@
   <div class="pk-container">
     <div class="pk-side">
       <h3>主播 A</h3>
-      <video id="videoA" autoplay playsinline controls></video>
+      <video id="videoA" autoplay playsinline controls muted></video>
     </div>
     <div class="pk-side">
       <h3>主播 B</h3>
-      <video id="videoB" autoplay playsinline controls></video>
+      <video id="videoB" autoplay playsinline controls muted></video>
     </div>
   </div>
 
@@ -138,6 +138,9 @@
   try { const rc = document.getElementById('roomCode'); if (rc) rc.textContent = combinedRoom || '---'; } catch (e) {}
     const leftOwnerParam = params.get('left') || params.get('leftOwner') || null;
     const rightOwnerParam = params.get('right') || params.get('rightOwner') || null;
+    // 可選：顯示名稱（不影響投票的 ownerId）
+    const leftNameParam = params.get('leftName') || params.get('leftDisplay') || null;
+    const rightNameParam = params.get('rightName') || params.get('rightDisplay') || null;
     const leftLabelEl = document.getElementById('leftLabel');
     const rightLabelEl = document.getElementById('rightLabel');
     const leftHeatEl = document.getElementById('leftHeat');
@@ -149,6 +152,11 @@
     let latestCounts = {};
     let toastTimer = null;
     let userUnmuted = false; // user toggles to hear both sides
+
+    const logVideoStatus = (label, v) => {
+      if (!v) return;
+      console.log(`[pk-viewer] ℹ️ ${label} status: readyState=${v.readyState} paused=${v.paused} muted=${v.muted} hasStream=${!!v.srcObject}`);
+    };
 
     const forcePlay = async (videoEl, label) => {
       if (!videoEl) return;
@@ -183,6 +191,10 @@
         if (ok) return;
         setTimeout(() => forcePlay(videoEl, `${label}-retry500ms`), 500);
         setTimeout(() => forcePlay(videoEl, `${label}-retry1500ms`), 1500);
+        setTimeout(() => {
+          logVideoStatus(`${label}-check2s`, videoEl);
+          if (videoEl.paused) forcePlay(videoEl, `${label}-retry2000ms`);
+        }, 2000);
       });
     };
   // 初始未取得左右主播 ID 前，先禁用投票按鈕避免誤觸
@@ -241,8 +253,8 @@
       if (!leftLabelEl || !rightLabelEl) return;
       
       // Get display names based on actual owner IDs
-      const leftName = leftOwnerParam || (leftOwnerId ? `主播 ${String(leftOwnerId).substring(0, 6)}` : '主播 A');
-      const rightName = rightOwnerParam || (rightOwnerId ? `主播 ${String(rightOwnerId).substring(0, 6)}` : '主播 B');
+      const leftName = leftNameParam || leftOwnerParam || (leftOwnerId ? `主播 ${String(leftOwnerId).substring(0, 6)}` : '主播 A');
+      const rightName = rightNameParam || rightOwnerParam || (rightOwnerId ? `主播 ${String(rightOwnerId).substring(0, 6)}` : '主播 B');
       
       const leftKey = leftOwnerId ? String(leftOwnerId) : null;
       const rightKey = rightOwnerId ? String(rightOwnerId) : null;
@@ -390,6 +402,7 @@
         leftOwnerId = resolvedLeftOwner;
         peerToOwner[peerId] = resolvedLeftOwner;
         retryPlay(videoA, 'videoA');
+        setTimeout(() => logVideoStatus('videoA-post', videoA), 1200);
         renderVoteUI();
         return 'A';
       }
@@ -403,6 +416,7 @@
         rightOwnerId = resolvedRightOwner;
         peerToOwner[peerId] = resolvedRightOwner;
         retryPlay(videoB, 'videoB');
+        setTimeout(() => logVideoStatus('videoB-post', videoB), 1200);
         renderVoteUI();
         return 'B';
       }
