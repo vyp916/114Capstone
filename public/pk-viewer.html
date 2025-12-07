@@ -267,55 +267,76 @@
     const peers = {}; // map broadcasterSocketId -> RTCPeerConnection
     const pendingCandidates = {};
     const assigned = { slotA: null, slotB: null }; // record which peer is on which video
+    const streamCache = {}; // cache streams by peerId to accumulate tracks
 
     function attachStreamToSlot(stream, peerId) {
-      // assign first free slot
+      if (!stream) return null;
+      
       const videoA = document.getElementById('videoA');
       const videoB = document.getElementById('videoB');
       
       // 診斷：檢查接收到的流軌道
-      if (stream) {
-        const audioTracks = stream.getAudioTracks();
-        const videoTracks = stream.getVideoTracks();
-        console.log(`[pk-viewer] 📦 Attaching stream from peer ${peerId}: audio=${audioTracks.length} video=${videoTracks.length}`);
-        audioTracks.forEach((track, i) => {
-          console.log(`[pk-viewer] 🎤 AUDIO track ${i}: enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState} label=${track.label}`);
-        });
-        videoTracks.forEach((track, i) => {
-          console.log(`[pk-viewer] 📹 VIDEO track ${i}: enabled=${track.enabled} readyState=${track.readyState} label=${track.label}`);
-        });
+      const audioTracks = stream.getAudioTracks();
+      const videoTracks = stream.getVideoTracks();
+      console.log(`[pk-viewer] 📦 Stream from peer ${peerId}: audio=${audioTracks.length} video=${videoTracks.length}`);
+      
+      // Check if this peer is already assigned to a slot
+      if (assigned.slotA === peerId) {
+        if (videoA.srcObject !== stream) {
+          videoA.srcObject = stream;
+          console.log('[pk-viewer] ✅ Updated videoA with stream from', peerId);
+          videoA.muted = false;
+          videoA.play().catch(err => {
+            console.log('[pk-viewer] videoA autoplay blocked, muting', err);
+            videoA.muted = true;
+            videoA.play().catch(()=>{});
+          });
+        }
+        return 'A';
       }
+      
+      if (assigned.slotB === peerId) {
+        if (videoB.srcObject !== stream) {
+          videoB.srcObject = stream;
+          console.log('[pk-viewer] ✅ Updated videoB with stream from', peerId);
+          videoB.muted = false;
+          videoB.play().catch(err => {
+            console.log('[pk-viewer] videoB autoplay blocked, muting', err);
+            videoB.muted = true;
+            videoB.play().catch(()=>{});
+          });
+        }
+        return 'B';
+      }
+      
+      // Assign to first available slot
       if (!assigned.slotA) {
         assigned.slotA = peerId;
         videoA.srcObject = stream;
-        // 默認不靜音,嘗試播放音頻
+        console.log('[pk-viewer] 🎬 Assigned peer', peerId, 'to videoA (slot A)');
         videoA.muted = false;
-        videoA.play().then(() => {
-          console.log('[pk-viewer] videoA playing with audio');
-        }).catch(err => {
-          console.log('[pk-viewer] autoplay blocked, falling back to muted', err);
+        videoA.play().catch(err => {
+          console.log('[pk-viewer] videoA autoplay blocked, muting', err);
           videoA.muted = true;
           videoA.play().catch(()=>{});
         });
         return 'A';
       }
-      if (!assigned.slotB && assigned.slotA !== peerId) {
+      
+      if (!assigned.slotB) {
         assigned.slotB = peerId;
         videoB.srcObject = stream;
-        // 默認不靜音,嘗試播放音頻
+        console.log('[pk-viewer] 🎬 Assigned peer', peerId, 'to videoB (slot B)');
         videoB.muted = false;
-        videoB.play().then(() => {
-          console.log('[pk-viewer] videoB playing with audio');
-        }).catch(err => {
-          console.log('[pk-viewer] autoplay blocked, falling back to muted', err);
+        videoB.play().catch(err => {
+          console.log('[pk-viewer] videoB autoplay blocked, muting', err);
           videoB.muted = true;
           videoB.play().catch(()=>{});
         });
         return 'B';
       }
-      // if peer already assigned to a slot, update its video
-      if (assigned.slotA === peerId) { videoA.srcObject = stream; return 'A'; }
-      if (assigned.slotB === peerId) { videoB.srcObject = stream; return 'B'; }
+      
+      console.warn('[pk-viewer] ⚠️ No available slot for peer', peerId);
       return null;
     }
 
