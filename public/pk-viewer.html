@@ -176,32 +176,40 @@
       };
     }
 
-    function getDisplayName(side) {
-      if (side === 'left') return leftOwnerId || '主播 A';
-      return rightOwnerId || '主播 B';
-    }
-
     function renderVoteUI() {
       if (!leftLabelEl || !rightLabelEl) return;
-      const leftName = getDisplayName('left');
-      const rightName = getDisplayName('right');
+      
+      // Get display names based on actual owner IDs
+      const leftName = leftOwnerParam || (leftOwnerId ? `主播 ${String(leftOwnerId).substring(0, 6)}` : '主播 A');
+      const rightName = rightOwnerParam || (rightOwnerId ? `主播 ${String(rightOwnerId).substring(0, 6)}` : '主播 B');
+      
       const leftKey = leftOwnerId ? String(leftOwnerId) : null;
       const rightKey = rightOwnerId ? String(rightOwnerId) : null;
       const leftCount = (leftKey && latestCounts[leftKey]) ? latestCounts[leftKey] : 0;
       const rightCount = (rightKey && latestCounts[rightKey]) ? latestCounts[rightKey] : 0;
+      
       leftLabelEl.textContent = `${leftName} • ${leftCount}`;
       rightLabelEl.textContent = `${rightName} • ${rightCount}`;
+      
       if (voteLeftBtn) {
         voteLeftBtn.dataset.defaultText = `支持 ${leftName}`;
-        if (!voteLeftBtn.classList.contains('voted')) voteLeftBtn.textContent = voteLeftBtn.dataset.defaultText;
+        voteLeftBtn.dataset.ownerId = leftOwnerId || '';
+        if (!voteLeftBtn.classList.contains('voted')) {
+          voteLeftBtn.textContent = voteLeftBtn.dataset.defaultText;
+        }
         // 當左右主播 ID 都已知時才開放投票
-        voteLeftBtn.disabled = !(leftOwnerId && rightOwnerId);
+        voteLeftBtn.disabled = !(leftOwnerId && rightOwnerId && leftOwnerId !== rightOwnerId);
       }
       if (voteRightBtn) {
         voteRightBtn.dataset.defaultText = `支持 ${rightName}`;
-        if (!voteRightBtn.classList.contains('voted')) voteRightBtn.textContent = voteRightBtn.dataset.defaultText;
-        voteRightBtn.disabled = !(leftOwnerId && rightOwnerId);
+        voteRightBtn.dataset.ownerId = rightOwnerId || '';
+        if (!voteRightBtn.classList.contains('voted')) {
+          voteRightBtn.textContent = voteRightBtn.dataset.defaultText;
+        }
+        voteRightBtn.disabled = !(leftOwnerId && rightOwnerId && leftOwnerId !== rightOwnerId);
       }
+      
+      console.log(`[pk-viewer] 🎯 Vote UI: L="${leftName}"(${leftOwnerId}) vs R="${rightName}"(${rightOwnerId})`);
     }
 
     function createVoteBurst(target) {
@@ -251,11 +259,13 @@
       if (!combinedRoom) return;
       const targetOwner = side === 'left' ? leftOwnerId : rightOwnerId;
       const button = side === 'left' ? voteLeftBtn : voteRightBtn;
-      if (!targetOwner) {
-        // 按鈕已禁用，不再彈出提示以降低干擾；保留一行輕微導引
+      
+      if (!targetOwner || targetOwner === (side === 'left' ? rightOwnerId : leftOwnerId)) {
         showToast('正在取得 PK 資訊…');
         return;
       }
+      
+      console.log(`[pk-viewer] 🗳️ Voting for ${side}: ownerId=${targetOwner}`);
       socket.emit('pk-vote', { roomId: combinedRoom, ownerId: targetOwner });
       flashVoteButton(button);
     }
@@ -266,8 +276,8 @@
     // --- multi-peer handling: accept offers from two broadcasters and attach to videoA/videoB ---
     const peers = {}; // map broadcasterSocketId -> RTCPeerConnection
     const pendingCandidates = {};
-    const assigned = { slotA: null, slotB: null }; // record which peer is on which video
-    const streamCache = {}; // cache streams by peerId to accumulate tracks
+    const assigned = { slotA: null, slotB: null }; // record which peer (socket ID) is on which video
+    const peerToOwner = {}; // map peer socket ID to owner user ID for voting
 
     function attachStreamToSlot(stream, peerId) {
       if (!stream) return null;
@@ -280,7 +290,7 @@
       const videoTracks = stream.getVideoTracks();
       console.log(`[pk-viewer] 📦 Stream from peer ${peerId}: audio=${audioTracks.length} video=${videoTracks.length}`);
       
-      // Check if this peer is already assigned to a slot
+      // Check if this peer is already assigned to a slot - if so, just update the stream
       if (assigned.slotA === peerId) {
         if (videoA.srcObject !== stream) {
           videoA.srcObject = stream;
@@ -314,12 +324,16 @@
         assigned.slotA = peerId;
         videoA.srcObject = stream;
         console.log('[pk-viewer] 🎬 Assigned peer', peerId, 'to videoA (slot A)');
+        // Link this peer to leftOwner for voting
+        if (!leftOwnerId) leftOwnerId = peerId;
+        peerToOwner[peerId] = leftOwnerId;
         videoA.muted = false;
         videoA.play().catch(err => {
           console.log('[pk-viewer] videoA autoplay blocked, muting', err);
           videoA.muted = true;
           videoA.play().catch(()=>{});
         });
+        renderVoteUI();
         return 'A';
       }
       
@@ -327,12 +341,16 @@
         assigned.slotB = peerId;
         videoB.srcObject = stream;
         console.log('[pk-viewer] 🎬 Assigned peer', peerId, 'to videoB (slot B)');
+        // Link this peer to rightOwner for voting
+        if (!rightOwnerId) rightOwnerId = peerId;
+        peerToOwner[peerId] = rightOwnerId;
         videoB.muted = false;
         videoB.play().catch(err => {
           console.log('[pk-viewer] videoB autoplay blocked, muting', err);
           videoB.muted = true;
           videoB.play().catch(()=>{});
         });
+        renderVoteUI();
         return 'B';
       }
       
@@ -422,21 +440,30 @@
         try {
           latestCounts = counts || {};
           const keys = Object.keys(counts || {});
-          if (!leftOwnerId && keys.length) leftOwnerId = keys[0];
-          if (!rightOwnerId) {
+          
+          // Only auto-assign owner IDs if they haven't been set by video stream assignment
+          if (!leftOwnerId && !assigned.slotA && keys.length > 0) {
+            leftOwnerId = keys[0];
+            console.log('[pk-viewer] 📊 Auto-assigned leftOwnerId from votes:', leftOwnerId);
+          }
+          if (!rightOwnerId && !assigned.slotB && keys.length > 1) {
             const fallback = keys.find(k => k !== leftOwnerId);
-            if (fallback) rightOwnerId = fallback;
+            if (fallback) {
+              rightOwnerId = fallback;
+              console.log('[pk-viewer] 📊 Auto-assigned rightOwnerId from votes:', rightOwnerId);
+            }
           }
-          if (!rightOwnerId && keys.length === 1 && leftOwnerId !== keys[0]) {
-            rightOwnerId = keys[0];
-          }
-          const leftKey = leftOwnerId ? String(leftOwnerId) : (keys[0] || null);
-          const rightKey = rightOwnerId ? String(rightOwnerId) : (keys.find(k => k !== leftKey) || keys[0] || null);
-          const leftCount = leftKey ? (counts[leftKey] || 0) : 0;
-          const rightCount = rightKey ? (counts[rightKey] || 0) : 0;
-          const totalVal = total || leftCount + rightCount || 1;
-          if (leftHeatEl) leftHeatEl.style.width = Math.round((leftCount / (totalVal || 1)) * 100) + '%';
-          if (rightHeatEl) rightHeatEl.style.width = Math.round((rightCount / (totalVal || 1)) * 100) + '%';
+          
+          const leftKey = leftOwnerId ? String(leftOwnerId) : null;
+          const rightKey = rightOwnerId ? String(rightOwnerId) : null;
+          const leftCount = leftKey && counts[leftKey] ? counts[leftKey] : 0;
+          const rightCount = rightKey && counts[rightKey] ? counts[rightKey] : 0;
+          const totalVal = total || Math.max(leftCount + rightCount, 1);
+          
+          if (leftHeatEl) leftHeatEl.style.width = Math.round((leftCount / totalVal) * 100) + '%';
+          if (rightHeatEl) rightHeatEl.style.width = Math.round((rightCount / totalVal) * 100) + '%';
+          
+          console.log(`[pk-viewer] 📊 Votes updated: L=${leftCount} (${leftKey}) R=${rightCount} (${rightKey})`);
           renderVoteUI();
         } catch (e) { console.warn('failed to update pk votes UI', e); }
       });
