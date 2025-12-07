@@ -152,14 +152,27 @@
 
     const forcePlay = async (videoEl, label) => {
       if (!videoEl) return;
-      // start muted to satisfy autoplay, then optionally unmute if user requested
-      videoEl.muted = !userUnmuted;
-      try {
-        await videoEl.play();
-        console.log(`[pk-viewer] ✅ ${label} playing (${videoEl.muted ? 'muted' : 'with sound'})`);
-      } catch (err) {
-        console.warn(`[pk-viewer] ⚠️ ${label} play failed:`, err);
+      const tryPlay = async (mutedFirst) => {
+        videoEl.muted = mutedFirst;
+        try {
+          await videoEl.play();
+          console.log(`[pk-viewer] ✅ ${label} playing (${mutedFirst ? 'muted' : 'with sound'}) state=${videoEl.readyState} paused=${videoEl.paused}`);
+          return true;
+        } catch (err) {
+          console.warn(`[pk-viewer] ⚠️ ${label} play failed (muted=${mutedFirst}):`, err);
+          return false;
+        }
+      };
+
+      // If user explicitly unmuted, try with sound first
+      if (userUnmuted) {
+        if (await tryPlay(false)) return;
+        await tryPlay(true);
+        return;
       }
+
+      // Default: muted first for autoplay, then with sound if user later clicks unmute
+      await tryPlay(true);
     };
   // 初始未取得左右主播 ID 前，先禁用投票按鈕避免誤觸
   if (voteLeftBtn) voteLeftBtn.disabled = true;
