@@ -448,12 +448,26 @@
         video.srcObject = previewStream;
         video.play().catch(()=>{});
 
-        // announce broadcaster
-        socket.emit("broadcaster");
+        // announce broadcaster: 加入房間並在房間內廣播
+        socket.emit('broadcaster-join', roomId);
+        socket.emit("broadcaster", roomId);
         // 再次廣播以確保已連線的 viewer 收到通知
-        setTimeout(() => socket.emit("broadcaster"), 500);
+        setTimeout(() => socket.emit("broadcaster", roomId), 500);
 
+        // 監聽舊的 watcher 事件保持相容性
         socket.on("watcher", async id => {
+          console.log('[Broadcaster] watcher event (legacy)', id);
+          await createPeerConnection(id);
+        });
+
+        // 監聽新的 viewer-ready 事件：當觀眾加入房間時主動建立連線
+        socket.on('viewer-ready', async ({ viewerId }) => {
+          console.log('[Broadcaster] viewer-ready event, creating connection for', viewerId);
+          await createPeerConnection(viewerId);
+        });
+
+        // 統一的建立 peer connection 函數
+        async function createPeerConnection(id) {
           const pc = new RTCPeerConnection(config);
           peerConnections[id] = pc;
           let currentProcessed = processedStream.getVideoTracks()[0];
@@ -463,7 +477,10 @@
           if (!audios || !audios.length) {
             console.warn('[Broadcaster] no audio tracks to send');
           }
-          audios.forEach(a => pc.addTrack(a, stream));
+          audios.forEach(a => {
+            console.log('[Broadcaster] adding audio track:', a.label, 'enabled:', a.enabled);
+            pc.addTrack(a, stream);
+          });
 
           pc.onicecandidate = event => {
             if (event.candidate) socket.emit("candidate", id, event.candidate);
@@ -495,7 +512,7 @@
           } catch (e) {
             console.error('failed to create/send offer to', id);
           }
-        });
+        }
 
         socket.on("answer", (id, description) => peerConnections[id].setRemoteDescription(description));
         socket.on("candidate", (id, candidate) => peerConnections[id].addIceCandidate(new RTCIceCandidate(candidate)));

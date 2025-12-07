@@ -72,6 +72,11 @@
   let userId = null; // deterministic id for coloring chat names (from /api/profile)
 
     socket.emit('join-room', roomId);
+    
+    // 通知 broadcaster 觀眾已準備好接收串流
+    socket.emit('viewer-ready', { roomId, viewerId: socket.id });
+    console.log('[Viewer] emitted viewer-ready for room', roomId);
+    
     // 在線人數更新
     socket.on('viewer-count', count => {
       try { const vc = document.getElementById('viewerCount'); if (vc) vc.textContent = String(count); } catch (e) {}
@@ -89,11 +94,12 @@
         });
       };
     }
-    // request watcher role; also retry when a broadcaster appears
-    socket.emit('watcher');
-    socket.on('broadcaster', () => {
-      console.log('[Viewer] broadcaster detected, re-emit watcher');
-      socket.emit('watcher');
+    
+    // 監聽 broadcaster 事件（保持相容性）
+    socket.on('broadcaster', (data) => {
+      console.log('[Viewer] broadcaster detected in room', data);
+      // broadcaster 已在線，再次通知準備接收
+      socket.emit('viewer-ready', { roomId, viewerId: socket.id });
     });
 
   // 接收訊息 （使用 userId 產生 identity color）

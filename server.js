@@ -439,8 +439,14 @@ io.on("connection", socket => {
   // socket connected
   console.log('[server] socket connected', socket.id);
 
-  // WebRTC 事件（簡化版）
-  socket.on("broadcaster", () => socket.broadcast.emit("broadcaster"));
+  // WebRTC 事件：房間隔離版本
+  socket.on("broadcaster", (roomId) => {
+    if (!roomId) return;
+    console.log('[server] broadcaster announces in room', roomId, socket.id);
+    // 在房間內廣播 broadcaster 事件
+    socket.to(roomId).emit("broadcaster", { roomId, broadcasterId: socket.id });
+  });
+  
   // broadcaster declares itself as owner of a room
   socket.on('broadcaster-join', roomId => {
     try {
@@ -451,19 +457,34 @@ io.on("connection", socket => {
         // register in roomBroadcasters
         if (!roomBroadcasters.has(roomId)) roomBroadcasters.set(roomId, new Set());
         roomBroadcasters.get(roomId).add(socket.id);
-        console.log('[server] broadcaster joined room owner set', roomId, socket.id);
+        console.log('[server] broadcaster joined room', roomId, socket.id);
       }
     } catch (e) {}
   });
+  
   socket.on('pk-toggle', ({ roomId, enabled }) => {
     if (!roomId) return;
     roomPkEnabled.set(roomId, !!enabled);
   });
-  socket.on("watcher", () => socket.broadcast.emit("watcher", socket.id));
+  
+  // viewer-ready: 觀眾加入房間並準備接收串流
+  socket.on('viewer-ready', ({ roomId, viewerId }) => {
+    if (!roomId) return;
+    console.log('[server] viewer-ready', viewerId, 'in room', roomId);
+    // 通知房間內的 broadcaster 有新觀眾準備好了
+    socket.to(roomId).emit('viewer-ready', { viewerId });
+  });
+  
+  socket.on("watcher", () => {
+    console.log('[server] watcher (legacy)', socket.id);
+    socket.broadcast.emit("watcher", socket.id);
+  });
+  
+  // WebRTC signaling: 點對點傳送（不限制房間，因為已經由 id 指定對象）
   socket.on("offer", (id, message) => socket.to(id).emit("offer", socket.id, message));
   socket.on("answer", (id, message) => socket.to(id).emit("answer", socket.id, message));
   socket.on("candidate", (id, message) => socket.to(id).emit("candidate", socket.id, message));
-    socket.on("disconnect", () => socket.broadcast.emit("bye", socket.id));
+  socket.on("disconnect", () => socket.broadcast.emit("bye", socket.id));
 
   // 房間人數追蹤 (maps are global)
 
