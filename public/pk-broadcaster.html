@@ -401,17 +401,17 @@
                   console.log('PK: waiting for partner');
                   return;
                 }
-                // store partner id
-                initPK._partner = partner;
+                // store partner socket id
+                initPK._partner = partner.socketId;
                 console.log('[pk-broadcaster] 🤝 Partner set:', partner);
                 // flush any pending ICE candidates
                 flushPendingCandidates();
                 // create offer to partner
-                console.log('PK: creating offer to partner', partner);
+                console.log('PK: creating offer to partner', partner.socketId);
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                socket.emit('pk-offer', { to: partner, offer: pc.localDescription });
-                console.log('PK: sent offer to', partner);
+                socket.emit('pk-offer', { to: partner.socketId, offer: pc.localDescription });
+                console.log('PK: sent offer to', partner.socketId);
               } catch (e) { console.warn('pk-partner setup failed', e); }
             });
 

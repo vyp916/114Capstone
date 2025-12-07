@@ -451,13 +451,21 @@ io.on("connection", socket => {
   socket.on('broadcaster-join', roomId => {
     try {
       if (roomId) {
+        // Extract user info from session if available
+        const userInfo = {
+          socketId: socket.id,
+          userId: (socket.handshake.session && socket.handshake.session.user && socket.handshake.session.user.id) || null,
+          username: (socket.handshake.session && socket.handshake.session.user && socket.handshake.session.user.username) || '未知使用者'
+        };
+        socketToUser.set(socket.id, userInfo);
+        
         roomOwners.set(roomId, socket.id);
         roomPkEnabled.set(roomId, true); // default allow PK
         socket.join(roomId);
         // register in roomBroadcasters
         if (!roomBroadcasters.has(roomId)) roomBroadcasters.set(roomId, new Set());
         roomBroadcasters.get(roomId).add(socket.id);
-        console.log('[server] broadcaster joined room', roomId, socket.id);
+        console.log('[server] broadcaster joined room', roomId, socket.id, 'user:', userInfo.username);
       }
     } catch (e) {}
   });
@@ -479,8 +487,11 @@ io.on("connection", socket => {
     socket.broadcast.emit("watcher", socket.id);
   });
   
-  // WebRTC signaling: 點對點傳送（不限制房間，因為已經由 id 指定對象）
-  socket.on("offer", (id, message) => socket.to(id).emit("offer", socket.id, message));
+  // WebRTC signaling: 點對點傳送（不限制成一個寶間，因為已經由 id 指定對象）
+  socket.on("offer", (id, message) => {
+    const senderInfo = socketToUser.get(socket.id) || { socketId: socket.id, userId: null, username: '\u672a知\u4f7f\u7528\u8005' };
+    socket.to(id).emit("offer", socket.id, message, senderInfo);
+  });
   socket.on("answer", (id, message) => socket.to(id).emit("answer", socket.id, message));
   socket.on("candidate", (id, message) => socket.to(id).emit("candidate", socket.id, message));
   socket.on("disconnect", () => socket.broadcast.emit("bye", socket.id));
@@ -811,15 +822,20 @@ io.on("connection", socket => {
   socket.on('pk-get-partners', (room) => {
     try {
       // prefer returning broadcaster sockets in the room so pk handshake targets broadcasters only
-      let partners = [];
+      let partnerIds = [];
       if (roomBroadcasters.has(room)) {
-        partners = Array.from(roomBroadcasters.get(room)).filter(sid => sid !== socket.id);
+        partnerIds = Array.from(roomBroadcasters.get(room)).filter(sid => sid !== socket.id);
       }
       // fallback to any sockets in room if no broadcaster set yet
-      if ((!partners || partners.length === 0)) {
+      if ((!partnerIds || partnerIds.length === 0)) {
         const set = io.sockets.adapter.rooms.get(room) || new Set();
-        partners = Array.from(set).filter(sid => sid !== socket.id);
+        partnerIds = Array.from(set).filter(sid => sid !== socket.id);
       }
+      // Include user info for each partner
+      const partners = partnerIds.map(sid => {
+        const userInfo = socketToUser.get(sid) || { socketId: sid, userId: null, username: '未知使用者' };
+        return { socketId: sid, ...userInfo };
+      });
       socket.emit('pk-partners', { room, partners });
     } catch (e) {
       socket.emit('pk-partners', { room, partners: [] });

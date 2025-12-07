@@ -252,9 +252,23 @@
     function renderVoteUI() {
       if (!leftLabelEl || !rightLabelEl) return;
       
-      // Get display names based on actual owner IDs
-      const leftName = leftNameParam || leftOwnerParam || (leftOwnerId ? `主播 ${String(leftOwnerId).substring(0, 6)}` : '主播 A');
-      const rightName = rightNameParam || rightOwnerParam || (rightOwnerId ? `主播 ${String(rightOwnerId).substring(0, 6)}` : '主播 B');
+      // Get display names based on actual owner IDs or server-provided info
+      // Priority: URL param > peerToInfo username > ownerID > default
+      let leftName = leftNameParam;
+      if (!leftName && assigned.slotA && peerToInfo[assigned.slotA] && peerToInfo[assigned.slotA].username) {
+        leftName = peerToInfo[assigned.slotA].username;
+      }
+      if (!leftName && leftOwnerParam) leftName = leftOwnerParam;
+      if (!leftName && leftOwnerId) leftName = `主播 ${String(leftOwnerId).substring(0, 6)}`;
+      if (!leftName) leftName = '主播 A';
+      
+      let rightName = rightNameParam;
+      if (!rightName && assigned.slotB && peerToInfo[assigned.slotB] && peerToInfo[assigned.slotB].username) {
+        rightName = peerToInfo[assigned.slotB].username;
+      }
+      if (!rightName && rightOwnerParam) rightName = rightOwnerParam;
+      if (!rightName && rightOwnerId) rightName = `主播 ${String(rightOwnerId).substring(0, 6)}`;
+      if (!rightName) rightName = '主播 B';
       
       const leftKey = leftOwnerId ? String(leftOwnerId) : null;
       const rightKey = rightOwnerId ? String(rightOwnerId) : null;
@@ -351,6 +365,7 @@
     const pendingCandidates = {};
     const assigned = { slotA: null, slotB: null }; // record which peer (socket ID) is on which video
     const peerToOwner = {}; // map peer socket ID to owner user ID for voting
+    const peerToInfo = {}; // map peer socket ID to full user info { userId, username, socketId }
 
     function attachStreamToSlot(stream, peerId) {
       if (!stream) return null;
@@ -398,7 +413,7 @@
         videoA.srcObject = stream;
         console.log('[pk-viewer] 🎬 Assigned peer', peerId, 'to videoA (slot A)');
         // Link this peer to leftOwner for voting (prefer URL param owner ID)
-        const resolvedLeftOwner = leftOwnerParam || leftOwnerId || peerId;
+        const resolvedLeftOwner = leftOwnerParam || leftOwnerId || (peerToInfo[peerId] && peerToInfo[peerId].userId) || peerId;
         leftOwnerId = resolvedLeftOwner;
         peerToOwner[peerId] = resolvedLeftOwner;
         retryPlay(videoA, 'videoA');
@@ -412,7 +427,7 @@
         videoB.srcObject = stream;
         console.log('[pk-viewer] 🎬 Assigned peer', peerId, 'to videoB (slot B)');
         // Link this peer to rightOwner for voting (prefer URL param owner ID)
-        const resolvedRightOwner = rightOwnerParam || rightOwnerId || peerId;
+        const resolvedRightOwner = rightOwnerParam || rightOwnerId || (peerToInfo[peerId] && peerToInfo[peerId].userId) || peerId;
         rightOwnerId = resolvedRightOwner;
         peerToOwner[peerId] = resolvedRightOwner;
         retryPlay(videoB, 'videoB');
@@ -439,9 +454,14 @@
       } catch (e) { console.error('[pk-viewer] broadcaster event error:', e); }
     });
 
-    socket.on('offer', async (id, description) => {
+    socket.on('offer', async (id, description, senderInfo) => {
       try {
-        console.log('[pk-viewer] offer from', id);
+        console.log('[pk-viewer] offer from', id, 'info:', senderInfo);
+        // Store broadcaster user info for vote UI rendering
+        if (senderInfo) {
+          peerToInfo[id] = senderInfo;
+          console.log('[pk-viewer] Stored broadcaster info:', senderInfo.username, '(' + senderInfo.userId + ')');
+        }
         // create pc per broadcaster
         if (peers[id]) {
           try { peers[id].close(); } catch (e) {}
