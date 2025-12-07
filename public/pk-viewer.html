@@ -166,13 +166,24 @@
 
       // If user explicitly unmuted, try with sound first
       if (userUnmuted) {
-        if (await tryPlay(false)) return;
-        await tryPlay(true);
-        return;
+        if (await tryPlay(false)) return true;
+        return await tryPlay(true);
       }
 
       // Default: muted first for autoplay, then with sound if user later clicks unmute
-      await tryPlay(true);
+      return await tryPlay(true);
+    };
+
+    // Kick playback with retries to bypass mobile autoplay quirks
+    const retryPlay = (videoEl, label) => {
+      if (!videoEl) return;
+      const srcInfo = videoEl.srcObject ? videoEl.srcObject.id : 'no-stream';
+      console.log(`[pk-viewer] ▶️ retryPlay ${label} src=${srcInfo}`);
+      forcePlay(videoEl, label).then(ok => {
+        if (ok) return;
+        setTimeout(() => forcePlay(videoEl, `${label}-retry500ms`), 500);
+        setTimeout(() => forcePlay(videoEl, `${label}-retry1500ms`), 1500);
+      });
     };
   // 初始未取得左右主播 ID 前，先禁用投票按鈕避免誤觸
   if (voteLeftBtn) voteLeftBtn.disabled = true;
@@ -378,7 +389,7 @@
         const resolvedLeftOwner = leftOwnerParam || leftOwnerId || peerId;
         leftOwnerId = resolvedLeftOwner;
         peerToOwner[peerId] = resolvedLeftOwner;
-        forcePlay(videoA, 'videoA');
+        retryPlay(videoA, 'videoA');
         renderVoteUI();
         return 'A';
       }
@@ -391,7 +402,7 @@
         const resolvedRightOwner = rightOwnerParam || rightOwnerId || peerId;
         rightOwnerId = resolvedRightOwner;
         peerToOwner[peerId] = resolvedRightOwner;
-        forcePlay(videoB, 'videoB');
+        retryPlay(videoB, 'videoB');
         renderVoteUI();
         return 'B';
       }
