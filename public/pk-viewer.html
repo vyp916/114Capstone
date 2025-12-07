@@ -78,11 +78,11 @@
   <div class="pk-container">
     <div class="pk-side">
       <h3>主播 A</h3>
-      <video id="videoA" autoplay playsinline controls muted></video>
+      <video id="videoA" autoplay playsinline controls></video>
     </div>
     <div class="pk-side">
       <h3>主播 B</h3>
-      <video id="videoB" autoplay playsinline controls muted></video>
+      <video id="videoB" autoplay playsinline controls></video>
     </div>
   </div>
 
@@ -327,12 +327,18 @@
         // Link this peer to leftOwner for voting
         if (!leftOwnerId) leftOwnerId = peerId;
         peerToOwner[peerId] = leftOwnerId;
-        // PK viewer 預設靜音（觀眾不需要同時聽兩個主播）
-        videoA.muted = true;
+        // 嘗試自動播放，失敗則靜音後再試
+        videoA.muted = false;
         videoA.play().then(() => {
-          console.log('[pk-viewer] ✅ videoA playing successfully');
+          console.log('[pk-viewer] ✅ videoA playing successfully (with sound)');
         }).catch(err => {
-          console.warn('[pk-viewer] ⚠️ videoA play failed even when muted:', err);
+          console.log('[pk-viewer] videoA autoplay blocked, trying muted...');
+          videoA.muted = true;
+          videoA.play().then(() => {
+            console.log('[pk-viewer] ✅ videoA playing (muted - click to unmute)');
+          }).catch(err2 => {
+            console.warn('[pk-viewer] ⚠️ videoA play failed:', err2);
+          });
         });
         renderVoteUI();
         return 'A';
@@ -345,12 +351,18 @@
         // Link this peer to rightOwner for voting
         if (!rightOwnerId) rightOwnerId = peerId;
         peerToOwner[peerId] = rightOwnerId;
-        // PK viewer 預設靜音（觀眾不需要同時聽兩個主播）
-        videoB.muted = true;
+        // 嘗試自動播放，失敗則靜音後再試
+        videoB.muted = false;
         videoB.play().then(() => {
-          console.log('[pk-viewer] ✅ videoB playing successfully');
+          console.log('[pk-viewer] ✅ videoB playing successfully (with sound)');
         }).catch(err => {
-          console.warn('[pk-viewer] ⚠️ videoB play failed even when muted:', err);
+          console.log('[pk-viewer] videoB autoplay blocked, trying muted...');
+          videoB.muted = true;
+          videoB.play().then(() => {
+            console.log('[pk-viewer] ✅ videoB playing (muted - click to unmute)');
+          }).catch(err2 => {
+            console.warn('[pk-viewer] ⚠️ videoB play failed:', err2);
+          });
         });
         renderVoteUI();
         return 'B';
