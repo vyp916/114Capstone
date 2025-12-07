@@ -91,7 +91,10 @@
     }
     // request watcher role; also retry when a broadcaster appears
     socket.emit('watcher');
-    socket.on('broadcaster', () => socket.emit('watcher'));
+    socket.on('broadcaster', () => {
+      console.log('[Viewer] broadcaster detected, re-emit watcher');
+      socket.emit('watcher');
+    });
 
   // 接收訊息 （使用 userId 產生 identity color）
     // deterministic pastel-ish color generator based on userId (or username fallback)
@@ -365,6 +368,16 @@
                   }
                   video.play().then(() => {
                     console.log('[Viewer] video playing, muted:', video.muted, 'volume:', video.volume);
+                    // 嘗試觸發 video controls 的靜音按鈕以同步 UI（灰色喇叭問題）
+                    setTimeout(() => {
+                      try {
+                        // 再次確保 muted 為 false
+                        if (video.muted) {
+                          video.muted = false;
+                          console.log('[Viewer] re-applied muted=false');
+                        }
+                      } catch (e) {}
+                    }, 100);
                   }).catch(err => {
                     console.warn('[Viewer] play failed:', err);
                   });

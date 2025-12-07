@@ -450,6 +450,8 @@
 
         // announce broadcaster
         socket.emit("broadcaster");
+        // 再次廣播以確保已連線的 viewer 收到通知
+        setTimeout(() => socket.emit("broadcaster"), 500);
 
         socket.on("watcher", async id => {
           const pc = new RTCPeerConnection(config);
