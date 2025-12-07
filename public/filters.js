@@ -383,8 +383,8 @@ class FilterManager {
       const s = document.createElement('style');
       s.id = 'filter-styles';
       s.textContent = `
-      .filter-panel { position: fixed; right: 18px; bottom: 18px; z-index: 9999; }
-      .filter-panel .filter-toggle { background:#333;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer }
+      .filter-panel { position: fixed; left: 18px; top: 120px; z-index: 9999; }
+      .filter-panel .filter-toggle { background:#FF6B35;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer }
       .filter-card { background: rgba(0,0,0,0.8); color:#fff; padding:12px; border-radius:8px; margin-top:8px; width:260px; }
       .filter-card.hidden { display:none }
       .filter-list button { margin:6px 4px; padding:6px 8px; border-radius:6px; border:none; cursor:pointer }
