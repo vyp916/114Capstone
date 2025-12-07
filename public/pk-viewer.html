@@ -268,6 +268,33 @@
       // assign first free slot
       const videoA = document.getElementById('videoA');
       const videoB = document.getElementById('videoB');
+      
+      // 診斷：檢查接收到的流軌道
+      if (stream) {
+        const audioTracks = stream.getAudioTracks();
+        const videoTracks = stream.getVideoTracks();
+        console.log('[pk-viewer] attaching stream from peer', peerId, ':', {
+          audioTracks: audioTracks.length,
+          videoTracks: videoTracks.length
+        });
+        audioTracks.forEach((track, i) => {
+          console.log(`[pk-viewer] audio track ${i}:`, {
+            id: track.id,
+            label: track.label,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState
+          });
+        });
+        videoTracks.forEach((track, i) => {
+          console.log(`[pk-viewer] video track ${i}:`, {
+            id: track.id,
+            label: track.label,
+            enabled: track.enabled,
+            readyState: track.readyState
+          });
+        });
+      }
       if (!assigned.slotA) {
         assigned.slotA = peerId;
         videoA.srcObject = stream;
@@ -336,6 +363,22 @@
 
         pc.ontrack = ev => {
           try {
+            console.log('[pk-viewer] ontrack from broadcaster', id, ':', {
+              kind: ev.track.kind,
+              trackId: ev.track.id,
+              enabled: ev.track.enabled,
+              muted: ev.track.muted,
+              readyState: ev.track.readyState,
+              streams: ev.streams.length
+            });
+            if (ev.streams[0]) {
+              const s = ev.streams[0];
+              console.log('[pk-viewer] stream info:', {
+                id: s.id,
+                audioTracks: s.getAudioTracks().length,
+                videoTracks: s.getVideoTracks().length
+              });
+            }
             attachStreamToSlot(ev.streams[0], id);
           } catch (e) { console.warn('attachStream failed', e); }
         };

@@ -143,6 +143,33 @@
 
             const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             localVideo.srcObject = localStream;
+            
+            // 診斷：檢查音頻軌道
+            const audioTracks = localStream.getAudioTracks();
+            const videoTracks = localStream.getVideoTracks();
+            console.log('[pk-broadcaster] localStream tracks:', {
+              audio: audioTracks.length,
+              video: videoTracks.length
+            });
+            audioTracks.forEach((track, i) => {
+              console.log(`[pk-broadcaster] audio track ${i}:`, {
+                id: track.id,
+                label: track.label,
+                enabled: track.enabled,
+                muted: track.muted,
+                readyState: track.readyState
+              });
+              // 確保音頻軌道啟用
+              track.enabled = true;
+            });
+            videoTracks.forEach((track, i) => {
+              console.log(`[pk-broadcaster] video track ${i}:`, {
+                id: track.id,
+                label: track.label,
+                enabled: track.enabled,
+                readyState: track.readyState
+              });
+            });
 
             const pc = new RTCPeerConnection({ 
               iceServers: [
@@ -167,12 +194,38 @@
               iceCandidatePoolSize: 10
             });
             // add local tracks
-            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            const senders = [];
+            localStream.getTracks().forEach(t => {
+              const sender = pc.addTrack(t, localStream);
+              senders.push(sender);
+              console.log('[pk-broadcaster] added track to PK partner:', {
+                kind: t.kind,
+                id: t.id,
+                enabled: t.enabled,
+                readyState: t.readyState
+              });
+            });
+            console.log('[pk-broadcaster] total senders to PK partner:', senders.length);
 
             pc.ontrack = (ev) => {
               try {
-                remoteVideo.srcObject = ev.streams[0];
-              } catch (e) {}
+                console.log('[pk-broadcaster] received track from partner:', {
+                  kind: ev.track.kind,
+                  id: ev.track.id,
+                  enabled: ev.track.enabled,
+                  muted: ev.track.muted,
+                  readyState: ev.track.readyState,
+                  streams: ev.streams.length
+                });
+                if (ev.streams[0]) {
+                  remoteVideo.srcObject = ev.streams[0];
+                  const tracks = ev.streams[0].getTracks();
+                  console.log('[pk-broadcaster] partner stream tracks:', {
+                    audio: ev.streams[0].getAudioTracks().length,
+                    video: ev.streams[0].getVideoTracks().length
+                  });
+                }
+              } catch (e) { console.error('[pk-broadcaster] ontrack error:', e); }
             };
             pc.onicecandidate = e => {
               if (e.candidate) {
@@ -213,7 +266,18 @@
                 });
                 viewerPeers[id] = vpc;
                 // add local tracks (camera/audio)
-                localStream.getTracks().forEach(t => vpc.addTrack(t, localStream));
+                const viewerSenders = [];
+                localStream.getTracks().forEach(t => {
+                  const sender = vpc.addTrack(t, localStream);
+                  viewerSenders.push(sender);
+                  console.log('[pk-broadcaster] added track to viewer', id, ':', {
+                    kind: t.kind,
+                    id: t.id,
+                    enabled: t.enabled,
+                    readyState: t.readyState
+                  });
+                });
+                console.log('[pk-broadcaster] total senders to viewer', id, ':', viewerSenders.length);
 
                 vpc.onicecandidate = ev => {
                   if (ev.candidate) socket.emit('candidate', id, ev.candidate);
