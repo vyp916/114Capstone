@@ -482,7 +482,16 @@
           peerConnections[id] = pc;
 
           pc.onicecandidate = event => {
-            if (event.candidate) socket.emit("candidate", id, event.candidate);
+            if (event.candidate) {
+              const cand = event.candidate;
+              const type = cand.type; // host, srflx, relay
+              const addr = cand.address || 'unknown';
+              const proto = cand.protocol || 'unknown';
+              console.log(`[Broadcaster] 📡 ICE candidate (${type}): ${proto} ${addr}:${cand.port}`);
+              socket.emit("candidate", id, event.candidate);
+            } else {
+              console.log(`[Broadcaster] ✅ ICE gathering complete for ${id}`);
+            }
           };
 
           // 創建一個統一的 MediaStream 包含音訊和視訊

@@ -493,7 +493,31 @@
         };
 
         pc.onicecandidate = evt => {
-          if (evt.candidate) socket.emit('candidate', id, evt.candidate);
+          if (evt.candidate) {
+            const cand = evt.candidate;
+            const type = cand.type; // host, srflx, relay
+            const addr = cand.address || 'unknown';
+            const proto = cand.protocol || 'unknown';
+            console.log(`[Viewer] 📡 ICE candidate (${type}): ${proto} ${addr}:${cand.port}`);
+            socket.emit('candidate', id, evt.candidate);
+          } else {
+            console.log(`[Viewer] ✅ ICE gathering complete for broadcaster ${id}`);
+          }
+        };
+        
+        // 監控連接狀態
+        pc.oniceconnectionstatechange = () => {
+          console.log(`[Viewer] 🌐 ICE connection (${id}): ${pc.iceConnectionState}`);
+          if (pc.iceConnectionState === 'failed') {
+            console.error(`[Viewer] ❌ ICE FAILED for broadcaster ${id} - may be TURN server issue`);
+          }
+        };
+        
+        pc.onconnectionstatechange = () => {
+          console.log(`[Viewer] 🔗 Peer connection (${id}): ${pc.connectionState}`);
+          if (pc.connectionState === 'failed') {
+            console.error(`[Viewer] ❌ PEER CONNECTION FAILED for broadcaster ${id}`);
+          }
         };
 
         // if candidates arrived earlier, add them now
