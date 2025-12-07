@@ -604,7 +604,7 @@ body > h1 {
 }
 
 .message .text strong {
-  color: #FF6B35;
+  color: #000;
 }
 
 .system-message {
@@ -668,6 +668,28 @@ body > h1 {
   box-shadow: none;
 }
 
+/* Emoji 按鍵樣式 */
+.chat-input-row .icon-btn {
+  background: #FF6B35;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  border-radius: 6px;
+}
+
+.chat-input-row .icon-btn:hover {
+  background: #e55a2a;
+  transform: translateY(-2px);
+}
+
 /* =====================================
    Broadcaster 額外資訊列 (房間號 / 在線人數)
    ===================================== */
@@ -675,7 +697,7 @@ body > h1 {
 #infoBar {
   margin-top: 10px;
   margin-bottom: 10px;
-  color: #e5e5e5;
+  color: #000;
   font-size: 14px;
 }
 

@@ -43,6 +43,8 @@ body {
   padding: 40px 50px;
   border-radius: 12px;
   width: 360px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   backdrop-filter: none;
   animation: fadeIn 0.6s ease;
