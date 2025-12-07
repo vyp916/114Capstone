@@ -1,16 +1,19 @@
 body {
-  background-color: #111;
-  color: white;
+  background-color: #0f0f0f;
+  color: #ffffff;
   text-align: center;
-  font-family: Arial, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
 video {
-  width: 80%;
-  max-width: 800px;
-  margin-top: 20px;
-  border: 3px solid #0ff;
-  border-radius: 10px;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 0;
+  border: none;
+  border-radius: 12px;
+  background: #000;
 }
 
 /* Viewer layout: video left, chat right */
@@ -49,8 +52,9 @@ video {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
+  background: rgba(20, 20, 20, 0.95);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .container {
@@ -63,12 +67,12 @@ video {
 
 .sidebar {
   width: 240px;
-  background: #1c1c1c;
+  background: linear-gradient(135deg, #1a1a1a 0%, #242424 100%);
   padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  border-right: 2px solid #333;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .profile-section img {
@@ -80,27 +84,37 @@ video {
 }
 
 .profile-section button {
-  background: #007bff;
+  background: linear-gradient(135deg, #0066ff 0%, #0052cc 100%);
   border: none;
-  padding: 6px 12px;
-  border-radius: 5px;
+  padding: 8px 16px;
+  border-radius: 6px;
   color: white;
   cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.profile-section button:hover {
+  background: linear-gradient(135deg, #0052cc 0%, #003d99 100%);
+  transform: translateY(-2px);
 }
 
 .sidebar button {
   width: 100%;
   margin: 10px 0;
-  padding: 10px;
-  background: #292929;
-  border: none;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: white;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
 }
 
 .sidebar button:hover {
-  background: #444;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .main-content {
@@ -121,17 +135,19 @@ video {
 
 .stream-card {
   flex: 0 0 250px;
-  background: #1a1a1a;
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 0 5px #000;
+  background: rgba(30, 30, 30, 0.8);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   text-align: center;
   transition: all 0.3s ease;
 }
 
 .stream-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  transform: translateY(-8px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 #streamList {
@@ -141,17 +157,20 @@ video {
 .view-btn {
   display: inline-block;
   margin-top: 10px;
-  padding: 8px 16px;
-  background: #2196F3;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
   color: white;
   text-decoration: none;
-  border-radius: 4px;
+  border-radius: 8px;
   transition: all 0.3s ease;
+  font-weight: 500;
+  border: none;
 }
 
 .view-btn:hover {
-  background: #1976D2;
-  transform: scale(1.05);
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.3);
 }
 
 .stream-card img {
@@ -174,11 +193,13 @@ video {
 .modal.hidden { display: none; }
 
 .modal-content {
-  background: #222;
-  padding: 20px;
-  border-radius: 10px;
+  background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+  padding: 24px;
+  border-radius: 16px;
   width: 400px;
   text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .modal-content.large {
@@ -203,18 +224,35 @@ video {
 
 .search-bar input {
   width: 250px;
-  padding: 6px;
-  border: none;
-  border-radius: 4px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
   margin-right: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  transition: all 0.3s ease;
 }
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #0066ff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .search-bar button {
-  padding: 6px 12px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 4px;
-  background: #007bff;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0066ff 0%, #0052cc 100%);
   color: #fff;
   cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.search-bar button:hover {
+  background: linear-gradient(135deg, #0052cc 0%, #003d99 100%);
+  transform: translateY(-2px);
 }
 
 /* 刷新按鈕樣式 */
@@ -288,13 +326,14 @@ video {
 }
 
 .message .text {
-  color: #eee;
-  background: rgba(34, 34, 34, 0.8);
+  color: #e0e0e0;
+  background: linear-gradient(135deg, rgba(40, 40, 40, 0.9) 0%, rgba(50, 50, 50, 0.9) 100%);
   border-radius: 12px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   max-width: 80%;
   word-wrap: break-word;
   text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .message .text strong {
@@ -322,10 +361,10 @@ video {
 
 .chat-input-row input#chatInput {
   flex: 1;
-  padding: 10px;
+  padding: 12px;
   border-radius: 8px;
-  border: 1px solid #333;
-  background: rgba(34, 34, 34, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(34, 34, 34, 0.9);
   color: #fff;
   font-size: 14px;
   transition: all 0.3s ease;
@@ -333,28 +372,31 @@ video {
 
 .chat-input-row input#chatInput:focus {
   outline: none;
-  border-color: #007bff;
-  background: rgba(34, 34, 34, 0.95);
+  border-color: #0066ff;
+  background: rgba(40, 40, 40, 0.95);
+  box-shadow: 0 0 10px rgba(0, 102, 255, 0.2);
 }
 
 .chat-input-row button#sendBtn {
-  padding: 8px 16px;
+  padding: 10px 18px;
   border-radius: 8px;
   border: none;
-  background: #007bff;
+  background: linear-gradient(135deg, #0066ff 0%, #0052cc 100%);
   color: #fff;
   cursor: pointer;
-  font-weight: bold;
-  transition: all 0.2s ease;
+  font-weight: 600;
+  transition: all 0.3s ease;
 }
 
 .chat-input-row button#sendBtn:hover {
-  background: #0056b3;
+  background: linear-gradient(135deg, #0052cc 0%, #003d99 100%);
+  transform: translateY(-2px);
 }
 
 .chat-input-row button#sendBtn:disabled {
-  background: #555;
+  background: rgba(255, 255, 255, 0.1);
   cursor: not-allowed;
+  transform: none;
 }
 
 /* filter panel was injected by filters.js; providing additional positioning styles */
