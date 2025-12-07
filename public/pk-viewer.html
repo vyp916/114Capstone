@@ -273,26 +273,12 @@
       if (stream) {
         const audioTracks = stream.getAudioTracks();
         const videoTracks = stream.getVideoTracks();
-        console.log('[pk-viewer] attaching stream from peer', peerId, ':', {
-          audioTracks: audioTracks.length,
-          videoTracks: videoTracks.length
-        });
+        console.log(`[pk-viewer] 📦 Attaching stream from peer ${peerId}: audio=${audioTracks.length} video=${videoTracks.length}`);
         audioTracks.forEach((track, i) => {
-          console.log(`[pk-viewer] audio track ${i}:`, {
-            id: track.id,
-            label: track.label,
-            enabled: track.enabled,
-            muted: track.muted,
-            readyState: track.readyState
-          });
+          console.log(`[pk-viewer] 🎤 AUDIO track ${i}: enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState} label=${track.label}`);
         });
         videoTracks.forEach((track, i) => {
-          console.log(`[pk-viewer] video track ${i}:`, {
-            id: track.id,
-            label: track.label,
-            enabled: track.enabled,
-            readyState: track.readyState
-          });
+          console.log(`[pk-viewer] 📹 VIDEO track ${i}: enabled=${track.enabled} readyState=${track.readyState} label=${track.label}`);
         });
       }
       if (!assigned.slotA) {
@@ -363,21 +349,13 @@
 
         pc.ontrack = ev => {
           try {
-            console.log('[pk-viewer] ontrack from broadcaster', id, ':', {
-              kind: ev.track.kind,
-              trackId: ev.track.id,
-              enabled: ev.track.enabled,
-              muted: ev.track.muted,
-              readyState: ev.track.readyState,
-              streams: ev.streams.length
-            });
+            const emoji = ev.track.kind === 'audio' ? '🎤' : '📹';
+            console.log(`[pk-viewer] ${emoji} RECEIVED from broadcaster ${id}: kind=${ev.track.kind} enabled=${ev.track.enabled} muted=${ev.track.muted} readyState=${ev.track.readyState}`);
             if (ev.streams[0]) {
               const s = ev.streams[0];
-              console.log('[pk-viewer] stream info:', {
-                id: s.id,
-                audioTracks: s.getAudioTracks().length,
-                videoTracks: s.getVideoTracks().length
-              });
+              const audioCount = s.getAudioTracks().length;
+              const videoCount = s.getVideoTracks().length;
+              console.log(`[pk-viewer] 📦 Stream ${s.id} has: audio=${audioCount} video=${videoCount}`);
             }
             attachStreamToSlot(ev.streams[0], id);
           } catch (e) { console.warn('attachStream failed', e); }

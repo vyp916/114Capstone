@@ -147,28 +147,14 @@
             // 診斷：檢查音頻軌道
             const audioTracks = localStream.getAudioTracks();
             const videoTracks = localStream.getVideoTracks();
-            console.log('[pk-broadcaster] localStream tracks:', {
-              audio: audioTracks.length,
-              video: videoTracks.length
-            });
+            console.log(`[pk-broadcaster] localStream tracks: audio=${audioTracks.length} video=${videoTracks.length}`);
             audioTracks.forEach((track, i) => {
-              console.log(`[pk-broadcaster] audio track ${i}:`, {
-                id: track.id,
-                label: track.label,
-                enabled: track.enabled,
-                muted: track.muted,
-                readyState: track.readyState
-              });
+              console.log(`[pk-broadcaster] 🎤 AUDIO track ${i}: enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState} label=${track.label}`);
               // 確保音頻軌道啟用
               track.enabled = true;
             });
             videoTracks.forEach((track, i) => {
-              console.log(`[pk-broadcaster] video track ${i}:`, {
-                id: track.id,
-                label: track.label,
-                enabled: track.enabled,
-                readyState: track.readyState
-              });
+              console.log(`[pk-broadcaster] 📹 VIDEO track ${i}: enabled=${track.enabled} readyState=${track.readyState} label=${track.label}`);
             });
 
             const pc = new RTCPeerConnection({ 
@@ -198,32 +184,20 @@
             localStream.getTracks().forEach(t => {
               const sender = pc.addTrack(t, localStream);
               senders.push(sender);
-              console.log('[pk-broadcaster] added track to PK partner:', {
-                kind: t.kind,
-                id: t.id,
-                enabled: t.enabled,
-                readyState: t.readyState
-              });
+              const emoji = t.kind === 'audio' ? '🎤' : '📹';
+              console.log(`[pk-broadcaster] ${emoji} SENT to PK partner: kind=${t.kind} enabled=${t.enabled} readyState=${t.readyState}`);
             });
-            console.log('[pk-broadcaster] total senders to PK partner:', senders.length);
+            console.log(`[pk-broadcaster] ✅ Total senders to PK partner: ${senders.length}`);
 
             pc.ontrack = (ev) => {
               try {
-                console.log('[pk-broadcaster] received track from partner:', {
-                  kind: ev.track.kind,
-                  id: ev.track.id,
-                  enabled: ev.track.enabled,
-                  muted: ev.track.muted,
-                  readyState: ev.track.readyState,
-                  streams: ev.streams.length
-                });
+                const emoji = ev.track.kind === 'audio' ? '🎤' : '📹';
+                console.log(`[pk-broadcaster] ${emoji} RECEIVED from partner: kind=${ev.track.kind} enabled=${ev.track.enabled} muted=${ev.track.muted} readyState=${ev.track.readyState}`);
                 if (ev.streams[0]) {
                   remoteVideo.srcObject = ev.streams[0];
-                  const tracks = ev.streams[0].getTracks();
-                  console.log('[pk-broadcaster] partner stream tracks:', {
-                    audio: ev.streams[0].getAudioTracks().length,
-                    video: ev.streams[0].getVideoTracks().length
-                  });
+                  const audioCount = ev.streams[0].getAudioTracks().length;
+                  const videoCount = ev.streams[0].getVideoTracks().length;
+                  console.log(`[pk-broadcaster] 📦 Partner stream has: audio=${audioCount} video=${videoCount}`);
                 }
               } catch (e) { console.error('[pk-broadcaster] ontrack error:', e); }
             };
@@ -270,14 +244,10 @@
                 localStream.getTracks().forEach(t => {
                   const sender = vpc.addTrack(t, localStream);
                   viewerSenders.push(sender);
-                  console.log('[pk-broadcaster] added track to viewer', id, ':', {
-                    kind: t.kind,
-                    id: t.id,
-                    enabled: t.enabled,
-                    readyState: t.readyState
-                  });
+                  const emoji = t.kind === 'audio' ? '🎤' : '📹';
+                  console.log(`[pk-broadcaster] ${emoji} SENT to viewer ${id}: kind=${t.kind} enabled=${t.enabled} readyState=${t.readyState}`);
                 });
-                console.log('[pk-broadcaster] total senders to viewer', id, ':', viewerSenders.length);
+                console.log(`[pk-broadcaster] ✅ Total senders to viewer ${id}: ${viewerSenders.length}`);
 
                 vpc.onicecandidate = ev => {
                   if (ev.candidate) socket.emit('candidate', id, ev.candidate);
