@@ -405,6 +405,21 @@
               console.log('[Viewer] 🎬 both audio and video tracks received, ready to play');
               
               const tryPlay = () => {
+                // 播放前確認 stream 中確實有音視訊軌道
+                const currentStream = video.srcObject;
+                if (currentStream) {
+                  const audioTracks = currentStream.getAudioTracks();
+                  const videoTracks = currentStream.getVideoTracks();
+                  console.log('[Viewer] 📊 stream status before play - audio:', audioTracks.length, 'video:', videoTracks.length);
+                  
+                  // 如果視訊軌道還沒加入 stream，再等一下
+                  if (videoTracks.length === 0) {
+                    console.log('[Viewer] ⏳ video track not in stream yet, waiting 300ms more...');
+                    setTimeout(tryPlay, 300);
+                    return;
+                  }
+                }
+                
                 // 先用 muted 模式播放（瀏覽器一定會允許）
                 video.play().then(() => {
                   console.log('[Viewer] ✓ video playing (muted), muted:', video.muted, 'volume:', video.volume);
