@@ -117,19 +117,23 @@
     // 等待 socket 連線完成後才發送 viewer-ready
     function notifyViewerReady() {
       if (socket.id) {
+        console.log('[Viewer] 📤 Emitting join-room:', roomId);
         socket.emit('join-room', roomId);
+        console.log('[Viewer] 📤 Emitting viewer-ready with viewerId:', socket.id, 'roomId:', roomId);
         socket.emit('viewer-ready', { roomId, viewerId: socket.id });
-        console.log('[Viewer] emitted viewer-ready for room', roomId, 'with viewerId', socket.id);
+        console.log('[Viewer] ✅ viewer-ready sent');
       } else {
-        console.warn('[Viewer] socket.id not ready yet, retrying...');
+        console.warn('[Viewer] ⚠️ socket.id not ready yet, retrying...');
         setTimeout(notifyViewerReady, 100);
       }
     }
     
     // 如果已經連線就立即發送，否則等待 connect 事件
     if (socket.connected && socket.id) {
+      console.log('[Viewer] 🟢 Socket already connected, notifying ready');
       notifyViewerReady();
     } else {
+      console.log('[Viewer] 🟡 Waiting for socket connect event');
       socket.on('connect', notifyViewerReady);
     }
     

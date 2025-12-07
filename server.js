@@ -470,9 +470,11 @@ io.on("connection", socket => {
   // viewer-ready: 觀眾加入房間並準備接收串流
   socket.on('viewer-ready', ({ roomId, viewerId }) => {
     if (!roomId) return;
-    console.log('[server] viewer-ready', viewerId, 'in room', roomId);
+    console.log(`[server] 📥 viewer-ready: viewerId=${viewerId}, roomId=${roomId}, socket.id=${socket.id}`);
+    console.log(`[server] 📤 Forwarding viewer-ready to room ${roomId}`);
     // 通知房間內的 broadcaster 有新觀眾準備好了
     socket.to(roomId).emit('viewer-ready', { viewerId });
+    console.log(`[server] ✅ viewer-ready emitted to room ${roomId}`);
   });
   
   socket.on("watcher", () => {
@@ -497,7 +499,9 @@ io.on("connection", socket => {
 
   // Chatroom：加入房間
   socket.on("join-room", roomId => {
+    console.log(`[server] 📥 join-room: roomId=${roomId}, socket.id=${socket.id}`);
     socket.join(roomId);
+    console.log(`[server] ✅ socket joined room: ${roomId}`);
     io.to(roomId).emit("system-message", "有個人加入直播，你好！");
     updateViewerCount(roomId);
     // ensure reaction map exists for this room

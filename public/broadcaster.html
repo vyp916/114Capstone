@@ -506,7 +506,8 @@
 
         // 監聽新的 viewer-ready 事件：當觀眾加入房間時主動建立連線
         socket.on('viewer-ready', async ({ viewerId }) => {
-          console.log('[Broadcaster] viewer-ready event, creating connection for', viewerId);
+          console.log('[Broadcaster] 📥 viewer-ready event received, creating connection for', viewerId);
+          console.log('[Broadcaster] 👤 current peerConnections:', Object.keys(peerConnections));
           await createPeerConnection(viewerId);
         });
 
