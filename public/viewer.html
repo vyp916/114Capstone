@@ -362,6 +362,7 @@
 
         let streamSet = false; // 避免重複設置 srcObject
         let playAttempted = false; // 避免重複嘗試播放
+        let tracksReceived = { audio: false, video: false }; // 追蹤哪些軌道已到達
         
         pc.ontrack = event => {
           console.log('[Viewer] ontrack event received from', id);
@@ -372,7 +373,13 @@
             try {
               const audios = stream && stream.getAudioTracks ? stream.getAudioTracks() : [];
               const videos = stream && stream.getVideoTracks ? stream.getVideoTracks() : [];
-              console.log('[Viewer] tracks received - audio:', audios.length, audios.map(a => ({ label: a.label, enabled: a.enabled, muted: a.muted })), 'video:', videos.length);
+              console.log('[Viewer] tracks received - audio:', audios.length, 'video:', videos.length);
+              
+              // 更新軌道狀態
+              if (audios.length > 0) tracksReceived.audio = true;
+              if (videos.length > 0) tracksReceived.video = true;
+              
+              console.log('[Viewer] tracks status - audio received:', tracksReceived.audio, 'video received:', tracksReceived.video);
             } catch (e) { console.warn('[Viewer] log tracks failed', e); }
             
             // 只在第一次收到 track 時設置 srcObject
@@ -392,9 +399,10 @@
               });
             }
             
-            // 立即嘗試播放（靜音模式）
-            if (!playAttempted) {
+            // 等待音訊和視訊都到達後再播放
+            if (!playAttempted && tracksReceived.audio && tracksReceived.video) {
               playAttempted = true;
+              console.log('[Viewer] 🎬 both audio and video tracks received, ready to play');
               
               const tryPlay = () => {
                 // 先用 muted 模式播放（瀏覽器一定會允許）
@@ -440,8 +448,8 @@
                 });
               };
               
-              // 延遲 100ms 讓 tracks 穩定
-              setTimeout(tryPlay, 100);
+              // 延遲 200ms 讓 tracks 完全穩定
+              setTimeout(tryPlay, 200);
             }
             
           } catch (e) {
