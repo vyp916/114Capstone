@@ -148,11 +148,40 @@
             const audioTracks = localStream.getAudioTracks();
             const videoTracks = localStream.getVideoTracks();
             console.log(`[pk-broadcaster] localStream tracks: audio=${audioTracks.length} video=${videoTracks.length}`);
+            
+            // 在頁面上顯示音頻狀態
+            let audioWarning = document.getElementById('audioWarning');
+            if (!audioWarning) {
+              audioWarning = document.createElement('div');
+              audioWarning.id = 'audioWarning';
+              audioWarning.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#ff5252;color:#fff;padding:12px 20px;border-radius:8px;font-weight:600;z-index:99999;display:none;';
+              document.body.appendChild(audioWarning);
+            }
+            
             audioTracks.forEach((track, i) => {
               console.log(`[pk-broadcaster] 🎤 AUDIO track ${i}: enabled=${track.enabled} muted=${track.muted} readyState=${track.readyState} label=${track.label}`);
               // 確保音頻軌道啟用
               track.enabled = true;
+              
+              // 監控 muted 狀態變化
+              track.onmute = () => {
+                console.warn(`[pk-broadcaster] ⚠️ Audio track MUTED! This will cause no audio transmission.`);
+                audioWarning.textContent = '⚠️ 麥克風被靜音 - 對方聽不到聲音';
+                audioWarning.style.display = 'block';
+              };
+              track.onunmute = () => {
+                console.log(`[pk-broadcaster] ✅ Audio track UNMUTED`);
+                audioWarning.style.display = 'none';
+              };
+              
+              // 初始檢查
+              if (track.muted) {
+                console.warn(`[pk-broadcaster] ⚠️ Audio track is initially MUTED!`);
+                audioWarning.textContent = '⚠️ 麥克風靜音中 - 請檢查權限';
+                audioWarning.style.display = 'block';
+              }
             });
+            
             videoTracks.forEach((track, i) => {
               console.log(`[pk-broadcaster] 📹 VIDEO track ${i}: enabled=${track.enabled} readyState=${track.readyState} label=${track.label}`);
             });
@@ -193,11 +222,23 @@
               try {
                 const emoji = ev.track.kind === 'audio' ? '🎤' : '📹';
                 console.log(`[pk-broadcaster] ${emoji} RECEIVED from partner: kind=${ev.track.kind} enabled=${ev.track.enabled} muted=${ev.track.muted} readyState=${ev.track.readyState}`);
+                
+                // 如果收到的音頻軌道是 muted 狀態，警告
+                if (ev.track.kind === 'audio' && ev.track.muted) {
+                  console.warn(`[pk-broadcaster] ⚠️ Partner's audio track is MUTED - you won't hear them!`);
+                }
+                
                 if (ev.streams[0]) {
                   remoteVideo.srcObject = ev.streams[0];
+                  // 確保 remoteVideo 不靜音以播放對方聲音
+                  remoteVideo.muted = false;
+                  remoteVideo.volume = 1.0;
                   const audioCount = ev.streams[0].getAudioTracks().length;
                   const videoCount = ev.streams[0].getVideoTracks().length;
                   console.log(`[pk-broadcaster] 📦 Partner stream has: audio=${audioCount} video=${videoCount}`);
+                  
+                  // 嘗試播放（某些瀏覽器需要）
+                  remoteVideo.play().catch(e => console.warn('remoteVideo play failed:', e));
                 }
               } catch (e) { console.error('[pk-broadcaster] ontrack error:', e); }
             };
