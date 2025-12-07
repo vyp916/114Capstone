@@ -78,11 +78,11 @@
   <div class="pk-container">
     <div class="pk-side">
       <h3>主播 A</h3>
-      <video id="videoA" autoplay playsinline controls></video>
+      <video id="videoA" autoplay playsinline controls muted></video>
     </div>
     <div class="pk-side">
       <h3>主播 B</h3>
-      <video id="videoB" autoplay playsinline controls></video>
+      <video id="videoB" autoplay playsinline controls muted></video>
     </div>
   </div>
 
@@ -327,11 +327,12 @@
         // Link this peer to leftOwner for voting
         if (!leftOwnerId) leftOwnerId = peerId;
         peerToOwner[peerId] = leftOwnerId;
-        videoA.muted = false;
-        videoA.play().catch(err => {
-          console.log('[pk-viewer] videoA autoplay blocked, muting', err);
-          videoA.muted = true;
-          videoA.play().catch(()=>{});
+        // PK viewer 預設靜音（觀眾不需要同時聽兩個主播）
+        videoA.muted = true;
+        videoA.play().then(() => {
+          console.log('[pk-viewer] ✅ videoA playing successfully');
+        }).catch(err => {
+          console.warn('[pk-viewer] ⚠️ videoA play failed even when muted:', err);
         });
         renderVoteUI();
         return 'A';
@@ -344,11 +345,12 @@
         // Link this peer to rightOwner for voting
         if (!rightOwnerId) rightOwnerId = peerId;
         peerToOwner[peerId] = rightOwnerId;
-        videoB.muted = false;
-        videoB.play().catch(err => {
-          console.log('[pk-viewer] videoB autoplay blocked, muting', err);
-          videoB.muted = true;
-          videoB.play().catch(()=>{});
+        // PK viewer 預設靜音（觀眾不需要同時聽兩個主播）
+        videoB.muted = true;
+        videoB.play().then(() => {
+          console.log('[pk-viewer] ✅ videoB playing successfully');
+        }).catch(err => {
+          console.warn('[pk-viewer] ⚠️ videoB play failed even when muted:', err);
         });
         renderVoteUI();
         return 'B';
