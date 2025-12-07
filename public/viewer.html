@@ -61,7 +61,7 @@
   // 顯示房間號
   try { const rc = document.getElementById('roomCode'); if (rc) rc.textContent = roomId || '---'; } catch (e) {}
   let username = '匿名用戶';
-  let avatar = '/uploads/default_avatar.png';
+  let avatar = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect fill="%23e0e0e0" width="200" height="200"/%3E%3Ccircle cx="100" cy="70" r="40" fill="%23999"/%3E%3Cellipse cx="100" cy="150" rx="50" ry="40" fill="%23999"/%3E%3C/svg%3E';
   let userId = null; // deterministic id for coloring chat names (from /api/profile)
 
     // 等待 socket 連線完成後才發送 viewer-ready
@@ -282,7 +282,7 @@
       .then(data => {
         if (data) {
           username = data.username;
-          avatar = data.avatar || '/uploads/default_avatar.png';
+          avatar = data.avatar || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect fill="%23e0e0e0" width="200" height="200"/%3E%3Ccircle cx="100" cy="70" r="40" fill="%23999"/%3E%3Cellipse cx="100" cy="150" rx="50" ry="40" fill="%23999"/%3E%3C/svg%3E';
           userId = data.id || null;
         }
       })

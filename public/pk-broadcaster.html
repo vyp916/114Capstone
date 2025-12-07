@@ -543,7 +543,7 @@
             line.style.background = bg;
             const idForColor = data.userId || data.sender || data.user || 'anon';
             const nameColor = colorForId(String(idForColor));
-            const avatar = data.avatar || '/uploads/default_avatar.png';
+            const avatar = data.avatar || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect fill="%23e0e0e0" width="200" height="200"/%3E%3Ccircle cx="100" cy="70" r="40" fill="%23999"/%3E%3Cellipse cx="100" cy="150" rx="50" ry="40" fill="%23999"/%3E%3C/svg%3E';
             const displayName = data.isHost ? `👑 ${data.user}` : data.user;
             line.innerHTML = `<img src="${avatar}" alt="avatar" style="width:36px;height:36px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:8px;">` +
                              `<div class="text" style="display:inline-block;vertical-align:middle;"><strong style="color:${nameColor}">${displayName}</strong><br>${data.text}</div>`;
@@ -564,7 +564,7 @@
 
         // Chat send behavior: reuse viewer.html logic so Enter and button both send, and use real profile
         let pkUsername = '主播';
-        let pkAvatar = '/uploads/default_avatar.png';
+        let pkAvatar = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"%3E%3Crect fill="%23e0e0e0" width="200" height="200"/%3E%3Ccircle cx="100" cy="70" r="40" fill="%23999"/%3E%3Cellipse cx="100" cy="150" rx="50" ry="40" fill="%23999"/%3E%3C/svg%3E';
         let pkUserId = null;
 
         function pkSendMessage() {
