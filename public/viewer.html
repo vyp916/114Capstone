@@ -14,6 +14,25 @@
           <span>房間號：<strong id="roomCode">---</strong></span>
           <span>👥 在線人數：<strong id="viewerCount">0</strong></span>
           <button id="shareBtn" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#111;color:#eee;cursor:pointer;">📤 分享連結</button>
+          <button id="diagBtn" style="margin-left:6px;padding:4px 8px;font-size:12px;">🔧 診斷面板</button>
+        </div>
+
+        <!-- 診斷面板 -->
+        <div id="diagPanel" style="display:none;background:#1a1a1a;color:#0f0;border:1px solid #0f0;border-radius:6px;padding:12px;margin:8px;font-family:monospace;font-size:11px;max-height:200px;overflow:auto;box-shadow:0 0 10px rgba(0,255,0,0.3);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid #0f0;padding-bottom:8px;">
+            <strong>🔧 WebRTC 診斷</strong>
+            <button id="closeDiagBtn" style="background:#0f0;color:#1a1a1a;border:none;padding:2px 6px;cursor:pointer;font-weight:bold;">關</button>
+          </div>
+          <div id="diagContent" style="line-height:1.6;">
+            <div>連線狀態：<span id="connStatus">---</span></div>
+            <div>ICE 狀態：<span id="iceStatus">---</span></div>
+            <div>簽署狀態：<span id="sigStatus">---</span></div>
+            <div>已接收候選：<span id="candCount">0</span> <span style="color:#888;">(Host/Srflx/Relay)</span></div>
+            <div style="margin-top:6px;padding-top:6px;border-top:1px solid #333;">
+              <div style="color:#888;font-size:10px;">Relay 候選：<span id="relayCands">❌ 未發現</span></div>
+              <div style="color:#888;font-size:10px;">TURN 伺服器：<span id="turnServer">---</span></div>
+            </div>
+          </div>
         </div>
         <h2 id="streamTitle">載入中...</h2>
         <p id="streamDesc"></p>
@@ -55,6 +74,34 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    // 診斷面板更新函數
+    function updateDiagPanel(pc, candCount, hasRelay, relayServer) {
+      document.getElementById('connStatus').textContent = pc?.connectionState || '---';
+      document.getElementById('iceStatus').textContent = pc?.iceConnectionState || '---';
+      document.getElementById('sigStatus').textContent = pc?.signalingState || '---';
+      
+      const totalCands = (candCount.host || 0) + (candCount.srflx || 0) + (candCount.relay || 0);
+      document.getElementById('candCount').textContent = `${totalCands} (${candCount.host || 0}H/${candCount.srflx || 0}S/${candCount.relay || 0}R)`;
+      
+      if (hasRelay) {
+        document.getElementById('relayCands').innerHTML = `✅ 已發現 (${relayServer || '未知'})`;
+        document.getElementById('relayCands').style.color = '#00ff00';
+      } else {
+        document.getElementById('relayCands').innerHTML = '❌ 未發現';
+        document.getElementById('relayCands').style.color = '#ff6b6b';
+      }
+    }
+
+    // 診斷面板開關
+    document.getElementById('diagBtn').addEventListener('click', () => {
+      const panel = document.getElementById('diagPanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    
+    document.getElementById('closeDiagBtn')?.addEventListener('click', () => {
+      document.getElementById('diagPanel').style.display = 'none';
+    });
+
     const socket = io();
     // debug helpers: connection state
     socket.on('connect', () => console.log('[viewer] socket connected', socket.id));
@@ -351,6 +398,11 @@
         const pc = new RTCPeerConnection(config);
         peers[id] = pc;
 
+        // 診斷狀態追蹤
+        let iceCandidateCount = { host: 0, srflx: 0, relay: 0 };
+        let hasRelay = false;
+        let relayServer = null;
+
         let streamSet = false; // 避免重複設置 srcObject
         let playAttempted = false; // 避免重複嘗試播放
         let tracksReceived = { audio: false, video: false }; // 追蹤哪些軌道已到達
@@ -493,6 +545,17 @@
             const addr = cand.address || 'unknown';
             const proto = cand.protocol || 'unknown';
             console.log(`[Viewer] 📡 ICE candidate (${type}): ${proto} ${addr}:${cand.port}`);
+            
+            // 追蹤候選類型
+            if (iceCandidateCount[type] !== undefined) iceCandidateCount[type]++;
+            if (type === 'relay') {
+              hasRelay = true;
+              relayServer = cand.relatedAddress || addr;
+            }
+            
+            // 更新頁面診斷
+            updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
+            
             socket.emit('candidate', id, evt.candidate);
           } else {
             console.log(`[Viewer] ✅ ICE gathering complete for broadcaster ${id}`);
@@ -502,6 +565,7 @@
         // 監控連接狀態
         pc.oniceconnectionstatechange = () => {
           console.log(`[Viewer] 🌐 ICE connection (${id}): ${pc.iceConnectionState}`);
+          updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
           if (pc.iceConnectionState === 'failed') {
             console.error(`[Viewer] ❌ ICE FAILED for broadcaster ${id} - may be TURN server issue`);
           }
@@ -509,6 +573,7 @@
         
         pc.onconnectionstatechange = () => {
           console.log(`[Viewer] 🔗 Peer connection (${id}): ${pc.connectionState}`);
+          updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
           if (pc.connectionState === 'failed') {
             console.error(`[Viewer] ❌ PEER CONNECTION FAILED for broadcaster ${id}`);
           }
