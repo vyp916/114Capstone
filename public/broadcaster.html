@@ -466,6 +466,17 @@
 
         // 統一的建立 peer connection 函數
         async function createPeerConnection(id) {
+          if (!id || id === 'undefined') {
+            console.error('[Broadcaster] ❌ invalid viewer id:', id);
+            return;
+          }
+          
+          // 避免重複建立連線
+          if (peerConnections[id]) {
+            console.log('[Broadcaster] ⚠️ peer connection already exists for', id, '- skipping');
+            return;
+          }
+          
           console.log('[Broadcaster] creating peer connection for', id);
           const pc = new RTCPeerConnection(config);
           peerConnections[id] = pc;

@@ -71,11 +71,24 @@
   let avatar = '/uploads/default_avatar.png';
   let userId = null; // deterministic id for coloring chat names (from /api/profile)
 
-    socket.emit('join-room', roomId);
+    // 等待 socket 連線完成後才發送 viewer-ready
+    function notifyViewerReady() {
+      if (socket.id) {
+        socket.emit('join-room', roomId);
+        socket.emit('viewer-ready', { roomId, viewerId: socket.id });
+        console.log('[Viewer] emitted viewer-ready for room', roomId, 'with viewerId', socket.id);
+      } else {
+        console.warn('[Viewer] socket.id not ready yet, retrying...');
+        setTimeout(notifyViewerReady, 100);
+      }
+    }
     
-    // 通知 broadcaster 觀眾已準備好接收串流
-    socket.emit('viewer-ready', { roomId, viewerId: socket.id });
-    console.log('[Viewer] emitted viewer-ready for room', roomId);
+    // 如果已經連線就立即發送，否則等待 connect 事件
+    if (socket.connected && socket.id) {
+      notifyViewerReady();
+    } else {
+      socket.on('connect', notifyViewerReady);
+    }
     
     // 在線人數更新
     socket.on('viewer-count', count => {
@@ -99,7 +112,10 @@
     socket.on('broadcaster', (data) => {
       console.log('[Viewer] broadcaster detected in room', data);
       // broadcaster 已在線，再次通知準備接收
-      socket.emit('viewer-ready', { roomId, viewerId: socket.id });
+      if (socket.id) {
+        socket.emit('viewer-ready', { roomId, viewerId: socket.id });
+        console.log('[Viewer] re-emitted viewer-ready after broadcaster announcement');
+      }
     });
 
   // 接收訊息 （使用 userId 產生 identity color）
@@ -328,7 +344,7 @@
   const peers = {}; // map of RTCPeerConnection by broadcaster socket id
   const pendingCandidates = {}; // store candidates that arrive before pc is created
   let userUnmuted = false; // 使用者是否已手動解除靜音（避免後續 ontrack 把 muted 改回去）
-  socket.emit("watcher");
+  // 不再使用舊的 watcher 機制，已改用 viewer-ready
 
     socket.on("offer", async (id, description) => {
       console.log('[Viewer] ⬇️ received offer from broadcaster', id);
