@@ -19,6 +19,9 @@
         <p id="streamDesc"></p>
           <video id="video" autoplay playsinline controls muted></video>
           <button id="unmuteBtn" style="position:absolute; right:16px; bottom:16px; z-index:999; padding:8px 10px; border-radius:6px; background:#222;color:#fff;border:none;display:none;">解除靜音 🔊</button>
+          <div id="audioHint" style="position:absolute; left:16px; bottom:16px; z-index:999; padding:6px 10px; border-radius:6px; background:rgba(0,0,0,0.65); color:#fff; font-size:12px; display:none;">
+            若沒聲音，點「解除靜音」，或確認麥克風有傳入
+          </div>
           <!-- reactions (moved to PK pages) -->
             <!-- === Reactions (恢復非 PK 觀看端互動) === -->
             <div id="reactionBar" style="margin:10px 0 4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -335,32 +338,25 @@
             video.muted = true;
             video.srcObject = event.streams[0];
             video.play().catch(() => {});
-            // 每次 track 到來都重新檢查音軌，避免只在第一個事件判斷導致按鈕沒顯示
-            const hasAudio = event.streams[0] && event.streams[0].getAudioTracks && event.streams[0].getAudioTracks().length > 0;
+            // 不論是否立即偵測到音軌，都讓使用者可按下解除靜音；並再次檢查音軌狀態
             const unmuteBtn = document.getElementById('unmuteBtn');
             if (unmuteBtn) {
-              if (hasAudio) {
-                unmuteBtn.style.display = 'block';
-                unmuteBtn.onclick = () => {
-                  try { video.muted = false; } catch (e) {}
-                  unmuteBtn.style.display = 'none';
-                };
-              } else {
-                // 如果目前沒偵測到音軌，稍後再檢查一次（給 audio track 第二次 ontrack 的機會）
-                setTimeout(() => {
-                  try {
-                    const s = video.srcObject;
-                    const hasAudioLater = s && s.getAudioTracks && s.getAudioTracks().length > 0;
-                    if (hasAudioLater) {
-                      unmuteBtn.style.display = 'block';
-                      unmuteBtn.onclick = () => {
-                        try { video.muted = false; } catch (e) {}
-                        unmuteBtn.style.display = 'none';
-                      };
-                    }
-                  } catch (e) {}
-                }, 500);
-              }
+              unmuteBtn.style.display = 'block';
+              unmuteBtn.onclick = () => {
+                try { video.muted = false; } catch (e) {}
+                try { video.play(); } catch (e) {}
+                unmuteBtn.style.display = 'none';
+              };
+              // 500ms 後重新檢查是否存在音軌，若有則保持按鈕可用
+              setTimeout(() => {
+                try {
+                  const s = video.srcObject;
+                  const hasAudioLater = s && s.getAudioTracks && s.getAudioTracks().length > 0;
+                  if (hasAudioLater) {
+                    unmuteBtn.style.display = 'block';
+                  }
+                } catch (e) {}
+              }, 500);
             }
           } catch (e) {}
         };
