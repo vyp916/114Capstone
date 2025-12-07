@@ -318,6 +318,7 @@
   };
   const peers = {}; // map of RTCPeerConnection by broadcaster socket id
   const pendingCandidates = {}; // store candidates that arrive before pc is created
+  let userUnmuted = false; // 使用者是否已手動解除靜音（避免後續 ontrack 把 muted 改回去）
   socket.emit("watcher");
 
     socket.on("offer", async (id, description) => {
@@ -335,7 +336,8 @@
 
         pc.ontrack = event => {
           try {
-            video.muted = true;
+            // 僅在尚未手動解除靜音時預設靜音，避免後續 ontrack 覆蓋使用者選擇
+            if (!userUnmuted) video.muted = true;
             video.srcObject = event.streams[0];
             video.play().catch(() => {});
             // Debug: log incoming tracks
@@ -353,6 +355,7 @@
                 try { video.muted = false; } catch (e) {}
                 try { video.play(); } catch (e) {}
                 unmuteBtn.style.display = 'none';
+                userUnmuted = true;
               };
               // 500ms 後重新檢查是否存在音軌，若有則保持按鈕可用
               setTimeout(() => {
