@@ -352,10 +352,27 @@
             if (unmuteBtn) {
               unmuteBtn.style.display = 'block';
               unmuteBtn.onclick = () => {
-                try { video.muted = false; } catch (e) {}
-                try { video.play(); } catch (e) {}
-                unmuteBtn.style.display = 'none';
-                userUnmuted = true;
+                try {
+                  video.muted = false;
+                  video.volume = 1.0;
+                  // 強制啟用所有音訊 tracks（即使 track.muted 是唯讀，enabled 可改）
+                  const stream = video.srcObject;
+                  if (stream && stream.getAudioTracks) {
+                    stream.getAudioTracks().forEach(track => {
+                      track.enabled = true;
+                      console.log('[Viewer] enabled audio track:', track.label);
+                    });
+                  }
+                  video.play().then(() => {
+                    console.log('[Viewer] video playing, muted:', video.muted, 'volume:', video.volume);
+                  }).catch(err => {
+                    console.warn('[Viewer] play failed:', err);
+                  });
+                  unmuteBtn.style.display = 'none';
+                  userUnmuted = true;
+                } catch (e) {
+                  console.error('[Viewer] unmute failed:', e);
+                }
               };
               // 500ms 後重新檢查是否存在音軌，若有則保持按鈕可用
               setTimeout(() => {
