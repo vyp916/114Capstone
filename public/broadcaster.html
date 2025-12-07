@@ -22,29 +22,10 @@
   <div id="infoBar" style="text-align:center;">
     <p>房間號：<span id="roomCode">---</span></p>
     <button id="shareBtn">📤 分享連結</button>
-    <button id="diagBtn" style="margin-left:6px;padding:4px 8px;font-size:12px;">🔧 診斷面板</button>
     <p>👥 在線人數：<span id="viewerCount">0</span>
       <span id="topReaction" style="margin-left:12px; font-size:14px;"> </span>
       <span id="reactionPulse" aria-hidden="true" style="display:inline-block;width:10px;height:10px;background:#ff4081;border-radius:50%;margin-left:8px;opacity:0;transform:scale(0.8);transition:opacity 220ms, transform 220ms;"></span>
     </p>
-  </div>
-
-  <!-- 診斷面板 -->
-  <div id="diagPanel" style="display:none;background:#1a1a1a;color:#0f0;border:1px solid #0f0;border-radius:6px;padding:12px;margin:8px;font-family:monospace;font-size:11px;max-height:200px;overflow:auto;box-shadow:0 0 10px rgba(0,255,0,0.3);">
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid #0f0;padding-bottom:8px;">
-      <strong>🔧 WebRTC 診斷</strong>
-      <button id="closeDiagBtn" style="background:#0f0;color:#1a1a1a;border:none;padding:2px 6px;cursor:pointer;font-weight:bold;">關</button>
-    </div>
-    <div id="diagContent" style="line-height:1.6;">
-      <div>連線狀態：<span id="connStatus">---</span></div>
-      <div>ICE 狀態：<span id="iceStatus">---</span></div>
-      <div>簽署狀態：<span id="sigStatus">---</span></div>
-      <div>已發送候選：<span id="candCount">0</span> <span style="color:#888;">(Host/Srflx/Relay)</span></div>
-      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #333;">
-        <div style="color:#888;font-size:10px;">Relay 候選：<span id="relayCands">❌ 未發現</span></div>
-        <div style="color:#888;font-size:10px;">TURN 伺服器：<span id="turnServer">---</span></div>
-      </div>
-    </div>
   </div>
 
   <div style="text-align:center;margin-top:10px;">
@@ -103,33 +84,7 @@
   <script src="filters.js"></script>
   <script>
     
-    // 診斷面板更新函數
-    function updateDiagPanel(pc, candCount, hasRelay, relayServer) {
-      document.getElementById('connStatus').textContent = pc?.connectionState || '---';
-      document.getElementById('iceStatus').textContent = pc?.iceConnectionState || '---';
-      document.getElementById('sigStatus').textContent = pc?.signalingState || '---';
-      
-      const totalCands = (candCount.host || 0) + (candCount.srflx || 0) + (candCount.relay || 0);
-      document.getElementById('candCount').textContent = `${totalCands} (${candCount.host || 0}H/${candCount.srflx || 0}S/${candCount.relay || 0}R)`;
-      
-      if (hasRelay) {
-        document.getElementById('relayCands').innerHTML = `✅ 已發現 (${relayServer || '未知'})`;
-        document.getElementById('relayCands').style.color = '#00ff00';
-      } else {
-        document.getElementById('relayCands').innerHTML = '❌ 未發現';
-        document.getElementById('relayCands').style.color = '#ff6b6b';
-      }
-    }
 
-    // 診斷面板開關
-    document.getElementById('diagBtn').addEventListener('click', () => {
-      const panel = document.getElementById('diagPanel');
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    });
-    
-    document.getElementById('closeDiagBtn')?.addEventListener('click', () => {
-      document.getElementById('diagPanel').style.display = 'none';
-    });
 
     const socket = io();
     const peerConnections = {};
@@ -437,13 +392,6 @@
   // camera opened
 
         // Debug: log audio tracks availability
-        try {
-          const audios = stream.getAudioTracks();
-          console.log('[Broadcaster] audio tracks:', audios.length, audios.map(a => ({ label: a.label, enabled: a.enabled, muted: a.muted })));
-        } catch (e) { console.warn('[Broadcaster] cannot inspect audio tracks', e); }
-
-        // Create a hidden source video element that plays the raw camera stream.
-        // FilterManager needs a video element that contains the RAW frames to draw into canvas.
         const sourceVideo = document.createElement('video');
         sourceVideo.autoplay = true;
         sourceVideo.muted = true;
@@ -459,7 +407,6 @@
     // 建立 FilterManager：將原始攝影機流作為來源，產生處理後的視訊（canvas）
     // 使用手機相容性修復取得最佳化配置
     const filterConfig = window.MobileFix ? window.MobileFix.getMobileOptimizedConfig() : { width: 1280, height: 720, fps: 25, autoFace: true };
-    console.log('[Broadcaster] 使用濾鏡配置:', filterConfig);
     const filterMgr = new FilterManager(sourceVideo, stream, filterConfig);
 
         // preview broadcaster: 顯示處理後的視訊（canvas stream）
@@ -479,7 +426,6 @@
 
         const initialTrack = await waitForProcessedVideo(5000);
         if (initialTrack) previewStream.addTrack(initialTrack);
-        else console.warn('processed video track not ready');
 
         // show preview (processed)
         video.srcObject = previewStream;
@@ -493,77 +439,32 @@
 
         // 監聽舊的 watcher 事件保持相容性
         socket.on("watcher", async id => {
-          console.log('[Broadcaster] watcher event (legacy)', id);
           await createPeerConnection(id);
         });
 
         // 監聽新的 viewer-ready 事件：當觀眾加入房間時主動建立連線
         socket.on('viewer-ready', async ({ viewerId }) => {
-          console.log('[Broadcaster] 📥 viewer-ready event received, creating connection for', viewerId);
-          console.log('[Broadcaster] 👤 current peerConnections:', Object.keys(peerConnections));
           await createPeerConnection(viewerId);
         });
 
         // 統一的建立 peer connection 函數
         async function createPeerConnection(id) {
           if (!id || id === 'undefined') {
-            console.error('[Broadcaster] ❌ invalid viewer id:', id);
             return;
           }
           
           // 避免重複建立連線
           if (peerConnections[id]) {
-            console.log('[Broadcaster] ⚠️ peer connection already exists for', id, '- skipping');
             return;
           }
           
-          console.log('[Broadcaster] creating peer connection for', id);
           const pc = new RTCPeerConnection(config);
           peerConnections[id] = pc;
 
-          // 診斷狀態追蹤
-          let iceCandidateCount = { host: 0, srflx: 0, relay: 0 };
-          let hasRelay = false;
-          let relayServer = null;
-
           pc.onicecandidate = event => {
             if (event.candidate) {
-              const cand = event.candidate;
-              const type = cand.type; // host, srflx, relay
-              const addr = cand.address || 'unknown';
-              const proto = cand.protocol || 'unknown';
-              console.log(`[Broadcaster] 📡 ICE candidate (${type}): ${proto} ${addr}:${cand.port}`);
-              
-              // 追蹤候選類型
-              if (iceCandidateCount[type] !== undefined) iceCandidateCount[type]++;
-              if (type === 'relay') {
-                hasRelay = true;
-                relayServer = cand.relatedAddress || addr;
-              }
-              
-              // 更新頁面診斷
-              updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
-              
               socket.emit("candidate", id, event.candidate);
-            } else {
-              console.log(`[Broadcaster] ✅ ICE gathering complete for ${id}`);
             }
-          };
-
-          // 監聽連線狀態變化
-          pc.onconnectionstatechange = () => {
-            console.log(`[Broadcaster] 🔗 connection state: ${pc.connectionState}`);
-            updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
-          };
-
-          pc.oniceconnectionstatechange = () => {
-            console.log(`[Broadcaster] 🧊 ICE connection state: ${pc.iceConnectionState}`);
-            updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
-          };
-
-          pc.onsignalingstatechange = () => {
-            console.log(`[Broadcaster] 📢 signaling state: ${pc.signalingState}`);
-            updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
           };
 
           // 創建一個統一的 MediaStream 包含音訊和視訊
@@ -571,32 +472,14 @@
           
           // add original audio tracks from camera FIRST
           const audios = stream.getAudioTracks();
-          console.log('[Broadcaster] preparing to add audio tracks, count:', audios ? audios.length : 0);
-          if (!audios || !audios.length) {
-            console.error('[Broadcaster] ❌❌ NO audio tracks available to send! stream:', stream, 'tracks:', stream ? stream.getTracks() : null);
-          } else {
+          if (audios && audios.length) {
             audios.forEach(a => {
-              console.log('[Broadcaster] ✓ adding audio track:', a.label, 'enabled:', a.enabled, 'muted:', a.muted, 'readyState:', a.readyState);
-              combinedStream.addTrack(a); // 添加到統一 stream
-              const sender = pc.addTrack(a, combinedStream); // 使用統一 stream
-              console.log('[Broadcaster] ✓ audio sender created:', {
-                track: { id: a.id, enabled: a.enabled, muted: a.muted, readyState: a.readyState },
-                senderParams: sender.getParameters?.()
-              });
+              combinedStream.addTrack(a);
+              pc.addTrack(a, combinedStream);
             });
           }
           
-          // 診斷：檢查當前的 senders 和軌道
-          const sendersAfterAudio = pc.getSenders();
-          console.log('[Broadcaster] 📋 After adding audio - Total senders:', sendersAfterAudio.length);
-          sendersAfterAudio.forEach((s, i) => {
-            console.log(`[Broadcaster]   sender[${i}]: kind=${s.track?.kind}, enabled=${s.track?.enabled}, readyState=${s.track?.readyState}`);
-          });
-
           // then add video track
-          console.log('[Broadcaster] 🎥 preparing to add video track...');
-          console.log('[Broadcaster] 📊 processedStream tracks:', processedStream ? processedStream.getTracks().map(t => ({ kind: t.kind, label: t.label, enabled: t.enabled, readyState: t.readyState })) : 'null');
-          
           let currentProcessed = processedStream.getVideoTracks()[0];
           
           // helper: wait briefly for processedStream to expose a video track
@@ -612,78 +495,40 @@
 
           // try immediate, else wait a short time
           if (!currentProcessed) {
-            console.log('[Broadcaster] ⏳ waiting for processed video track...');
             currentProcessed = await waitForTrack(3000);
           }
           
           if (currentProcessed) {
             try { 
-              console.log('[Broadcaster] 🎥 adding video track:', currentProcessed.label, 'enabled:', currentProcessed.enabled, 'readyState:', currentProcessed.readyState);
-              combinedStream.addTrack(currentProcessed); // 添加到統一 stream
-              const sender = pc.addTrack(currentProcessed, combinedStream); // 使用統一 stream
-              console.log('[Broadcaster] ✅ video track added successfully, sender:', sender);
-              console.log('[Broadcaster] 📦 combinedStream final tracks:', combinedStream.getTracks().map(t => ({ kind: t.kind, label: t.label })));
-            } catch (e) { 
-              console.error('[Broadcaster] ❌ failed to add video track:', e); 
-            }
-          } else {
-            console.error('[Broadcaster] ❌❌ NO processed video track available for viewer', id);
-            console.error('[Broadcaster] 🔍 processedStream state:', {
-              stream: processedStream,
-              tracks: processedStream ? processedStream.getTracks() : null,
-              videoTracks: processedStream ? processedStream.getVideoTracks() : null,
-              active: processedStream ? processedStream.active : null
-            });
+              combinedStream.addTrack(currentProcessed);
+              pc.addTrack(currentProcessed, combinedStream);
+            } catch (e) { }
           }
-
-          // 最終診斷：檢查所有已添加的 senders
-          const allSenders = pc.getSenders();
-          console.log('[Broadcaster] 📋 FINAL RTCRtpSenders before offer:', allSenders.length);
-          allSenders.forEach((sender, i) => {
-            const track = sender.track;
-            if (track) {
-              console.log(`[Broadcaster]   [${i}] ${track.kind}: id=${track.id}, enabled=${track.enabled}, readyState=${track.readyState}, muted=${track.muted}`);
-            } else {
-              console.warn(`[Broadcaster]   [${i}] NO TRACK (sender exists but track is null)`);
-            }
-          });
           
           // create and send offer
           try {
-            console.log('[Broadcaster] creating offer for', id);
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            console.log('[Broadcaster] sending offer to', id);
             socket.emit('offer', id, pc.localDescription);
           } catch (e) {
-            console.error('[Broadcaster] ❌ failed to create/send offer to', id, e);
           }
         }
 
         socket.on("answer", (id, description) => {
-          console.log('[Broadcaster] ⬇️ received answer from', id);
           if (peerConnections[id]) {
-            peerConnections[id].setRemoteDescription(description).then(() => {
-              console.log('[Broadcaster] ✓ set remote description from answer');
-            }).catch(err => {
-              console.error('[Broadcaster] ❌ failed to set remote description:', err);
+            peerConnections[id].setRemoteDescription(description).catch(err => {
             });
-          } else {
-            console.warn('[Broadcaster] ⚠️ received answer but no peer connection for', id);
           }
         });
         
         socket.on("candidate", (id, candidate) => {
-          console.log('[Broadcaster] adding ICE candidate from viewer', id);
           if (peerConnections[id]) {
             peerConnections[id].addIceCandidate(new RTCIceCandidate(candidate)).catch(err => {
-              console.warn('[Broadcaster] failed to add ICE candidate:', err);
             });
           }
         });
         
         socket.on("bye", id => {
-          console.log('[Broadcaster] viewer disconnected:', id);
           if (peerConnections[id]) {
             peerConnections[id].close();
             delete peerConnections[id];
@@ -691,7 +536,6 @@
         });
       })
       .catch(err => {
-        console.error("🚫 鏡頭開啟失敗：", err);
         alert("請允許相機與麥克風權限，否則無法開播。");
       });
 
@@ -745,7 +589,6 @@
         const data = await res.json();
         alert(data.message);
       } catch (err) {
-        console.error("❌ 上傳失敗：", err);
       }
     };
 

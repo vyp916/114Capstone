@@ -14,25 +14,6 @@
           <span>房間號：<strong id="roomCode">---</strong></span>
           <span>👥 在線人數：<strong id="viewerCount">0</strong></span>
           <button id="shareBtn" style="padding:6px 10px;border-radius:6px;border:1px solid #444;background:#111;color:#eee;cursor:pointer;">📤 分享連結</button>
-          <button id="diagBtn" style="margin-left:6px;padding:4px 8px;font-size:12px;">🔧 診斷面板</button>
-        </div>
-
-        <!-- 診斷面板 -->
-        <div id="diagPanel" style="display:none;background:#1a1a1a;color:#0f0;border:1px solid #0f0;border-radius:6px;padding:12px;margin:8px;font-family:monospace;font-size:11px;max-height:200px;overflow:auto;box-shadow:0 0 10px rgba(0,255,0,0.3);">
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px;border-bottom:1px solid #0f0;padding-bottom:8px;">
-            <strong>🔧 WebRTC 診斷</strong>
-            <button id="closeDiagBtn" style="background:#0f0;color:#1a1a1a;border:none;padding:2px 6px;cursor:pointer;font-weight:bold;">關</button>
-          </div>
-          <div id="diagContent" style="line-height:1.6;">
-            <div>連線狀態：<span id="connStatus">---</span></div>
-            <div>ICE 狀態：<span id="iceStatus">---</span></div>
-            <div>簽署狀態：<span id="sigStatus">---</span></div>
-            <div>已接收候選：<span id="candCount">0</span> <span style="color:#888;">(Host/Srflx/Relay)</span></div>
-            <div style="margin-top:6px;padding-top:6px;border-top:1px solid #333;">
-              <div style="color:#888;font-size:10px;">Relay 候選：<span id="relayCands">❌ 未發現</span></div>
-              <div style="color:#888;font-size:10px;">TURN 伺服器：<span id="turnServer">---</span></div>
-            </div>
-          </div>
         </div>
         <h2 id="streamTitle">載入中...</h2>
         <p id="streamDesc"></p>
@@ -74,38 +55,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // 診斷面板更新函數
-    function updateDiagPanel(pc, candCount, hasRelay, relayServer) {
-      document.getElementById('connStatus').textContent = pc?.connectionState || '---';
-      document.getElementById('iceStatus').textContent = pc?.iceConnectionState || '---';
-      document.getElementById('sigStatus').textContent = pc?.signalingState || '---';
-      
-      const totalCands = (candCount.host || 0) + (candCount.srflx || 0) + (candCount.relay || 0);
-      document.getElementById('candCount').textContent = `${totalCands} (${candCount.host || 0}H/${candCount.srflx || 0}S/${candCount.relay || 0}R)`;
-      
-      if (hasRelay) {
-        document.getElementById('relayCands').innerHTML = `✅ 已發現 (${relayServer || '未知'})`;
-        document.getElementById('relayCands').style.color = '#00ff00';
-      } else {
-        document.getElementById('relayCands').innerHTML = '❌ 未發現';
-        document.getElementById('relayCands').style.color = '#ff6b6b';
-      }
-    }
-
-    // 診斷面板開關
-    document.getElementById('diagBtn').addEventListener('click', () => {
-      const panel = document.getElementById('diagPanel');
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    });
-    
-    document.getElementById('closeDiagBtn')?.addEventListener('click', () => {
-      document.getElementById('diagPanel').style.display = 'none';
-    });
-
     const socket = io();
-    // debug helpers: connection state
-    socket.on('connect', () => console.log('[viewer] socket connected', socket.id));
-    socket.on('connect_error', (err) => console.warn('[viewer] socket connect_error', err && err.message));
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
   // 顯示房間號
@@ -117,23 +67,17 @@
     // 等待 socket 連線完成後才發送 viewer-ready
     function notifyViewerReady() {
       if (socket.id) {
-        console.log('[Viewer] 📤 Emitting join-room:', roomId);
         socket.emit('join-room', roomId);
-        console.log('[Viewer] 📤 Emitting viewer-ready with viewerId:', socket.id, 'roomId:', roomId);
         socket.emit('viewer-ready', { roomId, viewerId: socket.id });
-        console.log('[Viewer] ✅ viewer-ready sent');
       } else {
-        console.warn('[Viewer] ⚠️ socket.id not ready yet, retrying...');
         setTimeout(notifyViewerReady, 100);
       }
     }
     
     // 如果已經連線就立即發送，否則等待 connect 事件
     if (socket.connected && socket.id) {
-      console.log('[Viewer] 🟢 Socket already connected, notifying ready');
       notifyViewerReady();
     } else {
-      console.log('[Viewer] 🟡 Waiting for socket connect event');
       socket.on('connect', notifyViewerReady);
     }
     
@@ -157,11 +101,9 @@
     
     // 監聽 broadcaster 事件（保持相容性）
     socket.on('broadcaster', (data) => {
-      console.log('[Viewer] broadcaster detected in room', data);
       // broadcaster 已在線，再次通知準備接收
       if (socket.id) {
         socket.emit('viewer-ready', { roomId, viewerId: socket.id });
-        console.log('[Viewer] re-emitted viewer-ready after broadcaster announcement');
       }
     });
 
@@ -212,13 +154,12 @@
     // If server tells this viewer the room has merged for PK, redirect to pk-viewer
     socket.on('pk-merged', ({ combinedRoom, leftOwner, rightOwner }) => {
       try {
-        console.log('[viewer] received pk-merged', combinedRoom, leftOwner, rightOwner);
         if (!combinedRoom) return;
         const qs = new URLSearchParams({ room: combinedRoom });
         if (leftOwner) qs.set('leftOwner', String(leftOwner));
         if (rightOwner) qs.set('rightOwner', String(rightOwner));
         window.location.href = `/pk-viewer.html?${qs.toString()}`;
-      } catch (e) { console.warn('pk-merged redirect failed', e); }
+      } catch (e) { }
     });
 
     // reactions removed from normal viewer; PK pages now provide emoji UI
@@ -385,18 +326,15 @@
   // 不再使用舊的 watcher 機制，已改用 viewer-ready
 
     socket.on("offer", async (id, description) => {
-      console.log('[Viewer] ⬇️ received offer from broadcaster', id);
       try {
         // if an existing pc exists for this id, close it to avoid state conflicts
         if (peers[id]) {
-          console.log('[Viewer] closing existing peer for', id);
           try { peers[id].close(); } catch (e) {}
           delete peers[id];
           // clear video preview if it was attached to old pc
           try { if (video.srcObject) video.srcObject = null; } catch (e) {}
         }
 
-        console.log('[Viewer] creating new RTCPeerConnection');
         const pc = new RTCPeerConnection(config);
         peers[id] = pc;
 
@@ -410,47 +348,30 @@
         let tracksReceived = { audio: false, video: false }; // 追蹤哪些軌道已到達
         
         pc.ontrack = event => {
-          console.log('[Viewer] ontrack event received from', id);
           try {
             const stream = event.streams[0];
-            
-            // Debug: log incoming tracks
-            try {
-              const audios = stream && stream.getAudioTracks ? stream.getAudioTracks() : [];
-              const videos = stream && stream.getVideoTracks ? stream.getVideoTracks() : [];
-              console.log('[Viewer] tracks received - audio:', audios.length, 'video:', videos.length);
-              
-              // 更新軌道狀態
-              if (audios.length > 0) tracksReceived.audio = true;
-              if (videos.length > 0) tracksReceived.video = true;
-              
-              console.log('[Viewer] tracks status - audio received:', tracksReceived.audio, 'video received:', tracksReceived.video);
-            } catch (e) { console.warn('[Viewer] log tracks failed', e); }
             
             // 只在第一次收到 track 時設置 srcObject
             if (!streamSet) {
               streamSet = true;
               video.srcObject = stream;
-              video.muted = false; // 默認不靜音，直接播放聲音
+              video.muted = false;
               video.volume = 1.0;
-              console.log('[Viewer] ✓ set srcObject, muted=false, volume=1.0');
             }
             
             // 確保所有音訊 tracks 都啟用
             if (stream && stream.getAudioTracks) {
               stream.getAudioTracks().forEach(track => {
                 track.enabled = true;
-                console.log('[Viewer] ✓ enabled audio track:', track.label, 'enabled:', track.enabled);
               });
             }
             
             // 等待音訊和視訊都到達後再播放
             if (!playAttempted && tracksReceived.audio && tracksReceived.video) {
               playAttempted = true;
-              console.log('[Viewer] 🎬 both audio and video tracks received, ready to play');
               
               let retryCount = 0;
-              const maxRetries = 10; // 最多等 3 秒 (10 * 300ms)
+              const maxRetries = 10;
               
               const tryPlay = () => {
                 // 播放前確認 stream 中確實有音視訊軌道
@@ -458,49 +379,30 @@
                 if (currentStream) {
                   const audioTracks = currentStream.getAudioTracks();
                   const videoTracks = currentStream.getVideoTracks();
-                  console.log('[Viewer] 📊 stream status before play (attempt', retryCount + 1, '/', maxRetries, ') - audio:', audioTracks.length, 'video:', videoTracks.length);
                   
                   // 如果視訊軌道還沒加入 stream，再等一下（但有次數限制）
                   if (videoTracks.length === 0 && retryCount < maxRetries) {
                     retryCount++;
-                    console.log('[Viewer] ⏳ video track not in stream yet, retrying in 300ms... (', retryCount, '/', maxRetries, ')');
                     setTimeout(tryPlay, 300);
                     return;
                   }
-                  
-                  // 如果超過重試次數還是沒有視訊，記錄警告並強制播放
-                  if (videoTracks.length === 0) {
-                    console.warn('[Viewer] ⚠️ video track still not in stream after', maxRetries, 'retries, playing anyway');
-                    console.warn('[Viewer] 🔍 debugging info - srcObject:', video.srcObject, 'all tracks:', currentStream.getTracks().map(t => ({ kind: t.kind, label: t.label, enabled: t.enabled, readyState: t.readyState })));
-                  }
-                } else {
-                  console.error('[Viewer] ❌ no srcObject set on video element!');
                 }
                 
                 // 播放（帶聲音）
                 video.play().then(() => {
-                  console.log('[Viewer] ✓ video playing with audio, muted:', video.muted, 'volume:', video.volume);
-                  const currentAudios = video.srcObject ? video.srcObject.getAudioTracks() : [];
-                  const currentVideos = video.srcObject ? video.srcObject.getVideoTracks() : [];
-                  console.log('[Viewer] ✓ currently playing - audio tracks:', currentAudios.length, 'video tracks:', currentVideos.length);
                 }).catch(err => {
-                  console.warn('[Viewer] ⚠️ autoplay with sound blocked, trying muted:', err.message);
                   // 如果帶聲音的自動播放被阻止，退回到靜音播放
                   video.muted = true;
                   video.play().then(() => {
-                    console.log('[Viewer] ✓ playing muted (browser restriction), user can unmute via controls');
                   }).catch(err2 => {
-                    console.error('[Viewer] ❌ even muted playback failed:', err2.message);
                   });
                   // 添加點擊事件監聽器
                   const playOnClick = () => {
                     video.play().then(() => {
                       video.muted = false;
-                      console.log('[Viewer] ✓ playing and unmuted after user interaction');
-                    }).catch(e => console.warn('[Viewer] play failed even after click:', e));
+                    }).catch(e => {});
                   };
                   document.addEventListener('click', playOnClick, { once: true });
-                  console.log('[Viewer] 💡 waiting for user click to start playback');
                 });
               };
               
@@ -512,22 +414,14 @@
             if (!playAttempted) {
               setTimeout(() => {
                 if (!playAttempted) {
-                  console.warn('[Viewer] ⏰ timeout: forcing playback with available tracks');
-                  console.log('[Viewer] tracks status at timeout - audio received:', tracksReceived.audio, 'video received:', tracksReceived.video);
-                  
                   if (video.srcObject) {
                     const s = video.srcObject;
-                    console.log('[Viewer] 🔍 stream tracks at timeout:', s.getTracks().map(t => ({ kind: t.kind, label: t.label })));
-                    
                     playAttempted = true;
-                    video.muted = false; // 嘗試帶聲音播放
+                    video.muted = false;
                     video.play().then(() => {
-                      console.log('[Viewer] ✓ timeout playback started with audio');
                     }).catch(err => {
-                      console.warn('[Viewer] ⚠️ timeout playback with audio failed, trying muted:', err.message);
                       video.muted = true;
                       video.play().catch(err2 => {
-                        console.error('[Viewer] ❌ timeout muted playback also failed:', err2.message);
                       });
                     });
                   }
@@ -536,48 +430,23 @@
             }
             
           } catch (e) {
-            console.error('[Viewer] ❌ ontrack handler failed:', e);
           }
         };
 
         pc.onicecandidate = evt => {
           if (evt.candidate) {
-            const cand = evt.candidate;
-            const type = cand.type; // host, srflx, relay
-            const addr = cand.address || 'unknown';
-            const proto = cand.protocol || 'unknown';
-            console.log(`[Viewer] 📡 ICE candidate (${type}): ${proto} ${addr}:${cand.port}`);
-            
-            // 追蹤候選類型
-            if (iceCandidateCount[type] !== undefined) iceCandidateCount[type]++;
-            if (type === 'relay') {
-              hasRelay = true;
-              relayServer = cand.relatedAddress || addr;
-            }
-            
-            // 更新頁面診斷
-            updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
-            
             socket.emit('candidate', id, evt.candidate);
-          } else {
-            console.log(`[Viewer] ✅ ICE gathering complete for broadcaster ${id}`);
           }
         };
         
         // 監控連接狀態
         pc.oniceconnectionstatechange = () => {
-          console.log(`[Viewer] 🌐 ICE connection (${id}): ${pc.iceConnectionState}`);
-          updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
           if (pc.iceConnectionState === 'failed') {
-            console.error(`[Viewer] ❌ ICE FAILED for broadcaster ${id} - may be TURN server issue`);
           }
         };
         
         pc.onconnectionstatechange = () => {
-          console.log(`[Viewer] 🔗 Peer connection (${id}): ${pc.connectionState}`);
-          updateDiagPanel(pc, iceCandidateCount, hasRelay, relayServer);
           if (pc.connectionState === 'failed') {
-            console.error(`[Viewer] ❌ PEER CONNECTION FAILED for broadcaster ${id}`);
           }
         };
 
