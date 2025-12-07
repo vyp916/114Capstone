@@ -549,22 +549,20 @@ body > h1 {
   background: transparent;
   display: flex;
   flex-direction: column;
-  flex: 1;
+  height: 100%;
   padding: 12px;
   border-radius: 12px;
-  height: 100%;
-  min-height: 0;
+  overflow: hidden;
 }
 
 #messages {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 8px;
   box-sizing: border-box;
   min-height: 0;
 }
@@ -638,9 +636,7 @@ body > h1 {
   background: #f9f9f9;
   border-radius: 8px;
   flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
+  margin-top: auto;
 }
 
 .chat-input-row input#chatInput {

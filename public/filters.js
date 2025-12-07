@@ -247,7 +247,13 @@ class FilterManager {
       </div>
     `;
 
-    document.body.appendChild(panel);
+    // 嘗試添加到指定容器，如果不存在則添加到 body
+    const container = document.getElementById('filterBtnContainer');
+    if (container) {
+      container.appendChild(panel);
+    } else {
+      document.body.appendChild(panel);
+    }
     this.ui = panel;
     // prepare default stickers and helper renderers BEFORE they're used
     this.defaultStickers = [
@@ -383,10 +389,9 @@ class FilterManager {
       const s = document.createElement('style');
       s.id = 'filter-styles';
       s.textContent = `
-      .filter-panel { position: fixed; left: 50%; transform: translateX(-50%); bottom: 70px; z-index: 1000; display: none; }
-      body:has(#video) .filter-panel { display: block; }
+      .filter-panel { position: relative; display: inline-block; }
       .filter-panel .filter-toggle { background:#FF6B35;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;box-shadow: 0 2px 8px rgba(255,107,53,0.3); }
-      .filter-card { background: rgba(0,0,0,0.9); color:#fff; padding:12px; border-radius:8px; margin-bottom:8px; width:260px; }
+      .filter-card { background: rgba(0,0,0,0.9); color:#fff; padding:12px; border-radius:8px; margin-top:8px; width:260px; position:absolute; left:50%; transform:translateX(-50%); z-index:100; }
       .filter-card.hidden { display:none }
       .filter-list button { margin:6px 4px; padding:6px 8px; border-radius:6px; border:none; cursor:pointer }
       .filter-list button:hover { transform:translateY(-2px) }
