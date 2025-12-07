@@ -74,11 +74,11 @@
   <div class="pk-container">
     <div class="pk-side">
       <h3>主播 A</h3>
-      <video id="videoA" autoplay playsinline controls muted></video>
+      <video id="videoA" autoplay playsinline controls></video>
     </div>
     <div class="pk-side">
       <h3>主播 B</h3>
-      <video id="videoB" autoplay playsinline controls muted></video>
+      <video id="videoB" autoplay playsinline controls></video>
     </div>
   </div>
 
@@ -271,13 +271,29 @@
       if (!assigned.slotA) {
         assigned.slotA = peerId;
         videoA.srcObject = stream;
-        videoA.play().catch(()=>{});
+        // 默認不靜音,嘗試播放音頻
+        videoA.muted = false;
+        videoA.play().then(() => {
+          console.log('[pk-viewer] videoA playing with audio');
+        }).catch(err => {
+          console.log('[pk-viewer] autoplay blocked, falling back to muted', err);
+          videoA.muted = true;
+          videoA.play().catch(()=>{});
+        });
         return 'A';
       }
       if (!assigned.slotB && assigned.slotA !== peerId) {
         assigned.slotB = peerId;
         videoB.srcObject = stream;
-        videoB.play().catch(()=>{});
+        // 默認不靜音,嘗試播放音頻
+        videoB.muted = false;
+        videoB.play().then(() => {
+          console.log('[pk-viewer] videoB playing with audio');
+        }).catch(err => {
+          console.log('[pk-viewer] autoplay blocked, falling back to muted', err);
+          videoB.muted = true;
+          videoB.play().catch(()=>{});
+        });
         return 'B';
       }
       // if peer already assigned to a slot, update its video
