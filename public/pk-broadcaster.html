@@ -270,10 +270,32 @@
                 }
               } catch (e) { console.error('[pk-broadcaster] ontrack error:', e); }
             };
+            // 儲存待發送的 ICE candidates
+            const pendingPkCandidates = [];
+            
             pc.onicecandidate = e => {
               if (e.candidate) {
-                // if we have a partner selected, send candidate
-                if (initPK._partner) socket.emit('pk-candidate', { to: initPK._partner, candidate: e.candidate });
+                console.log('[pk-broadcaster] 🧊 ICE candidate generated:', e.candidate.type);
+                // if we have a partner selected, send candidate immediately
+                if (initPK._partner) {
+                  socket.emit('pk-candidate', { to: initPK._partner, candidate: e.candidate });
+                  console.log('[pk-broadcaster] ✅ Sent ICE candidate to partner:', initPK._partner);
+                } else {
+                  // store for later when partner is known
+                  pendingPkCandidates.push(e.candidate);
+                  console.log('[pk-broadcaster] 📦 Stored ICE candidate (no partner yet), total:', pendingPkCandidates.length);
+                }
+              }
+            };
+            
+            // 輔助函數：當 partner 確定後發送所有待發送的 candidates
+            const flushPendingCandidates = () => {
+              if (initPK._partner && pendingPkCandidates.length > 0) {
+                console.log('[pk-broadcaster] 🚀 Flushing', pendingPkCandidates.length, 'pending ICE candidates to', initPK._partner);
+                pendingPkCandidates.forEach(candidate => {
+                  socket.emit('pk-candidate', { to: initPK._partner, candidate });
+                });
+                pendingPkCandidates.length = 0; // clear array
               }
             };
 
@@ -381,6 +403,9 @@
                 }
                 // store partner id
                 initPK._partner = partner;
+                console.log('[pk-broadcaster] 🤝 Partner set:', partner);
+                // flush any pending ICE candidates
+                flushPendingCandidates();
                 // create offer to partner
                 console.log('PK: creating offer to partner', partner);
                 const offer = await pc.createOffer();
@@ -396,6 +421,9 @@
                 console.log('PK: received offer from', from);
                 // set partner
                 initPK._partner = from;
+                console.log('[pk-broadcaster] 🤝 Partner set:', from);
+                // flush any pending ICE candidates
+                flushPendingCandidates();
                 await pc.setRemoteDescription(offer);
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
