@@ -335,11 +335,32 @@
             video.muted = true;
             video.srcObject = event.streams[0];
             video.play().catch(() => {});
+            // 每次 track 到來都重新檢查音軌，避免只在第一個事件判斷導致按鈕沒顯示
             const hasAudio = event.streams[0] && event.streams[0].getAudioTracks && event.streams[0].getAudioTracks().length > 0;
             const unmuteBtn = document.getElementById('unmuteBtn');
-            if (hasAudio && unmuteBtn) {
-              unmuteBtn.style.display = 'block';
-              unmuteBtn.onclick = () => { try { video.muted = false; } catch (e) {} ; unmuteBtn.style.display = 'none'; };
+            if (unmuteBtn) {
+              if (hasAudio) {
+                unmuteBtn.style.display = 'block';
+                unmuteBtn.onclick = () => {
+                  try { video.muted = false; } catch (e) {}
+                  unmuteBtn.style.display = 'none';
+                };
+              } else {
+                // 如果目前沒偵測到音軌，稍後再檢查一次（給 audio track 第二次 ontrack 的機會）
+                setTimeout(() => {
+                  try {
+                    const s = video.srcObject;
+                    const hasAudioLater = s && s.getAudioTracks && s.getAudioTracks().length > 0;
+                    if (hasAudioLater) {
+                      unmuteBtn.style.display = 'block';
+                      unmuteBtn.onclick = () => {
+                        try { video.muted = false; } catch (e) {}
+                        unmuteBtn.style.display = 'none';
+                      };
+                    }
+                  } catch (e) {}
+                }, 500);
+              }
             }
           } catch (e) {}
         };
