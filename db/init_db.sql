@@ -1,3 +1,4 @@
+-- Active: 1762686954048@@127.0.0.1@3306@live_platform
 -- 🚨 請注意：這會刪掉 live_platform 的所有資料！
 DROP DATABASE IF EXISTS live_platform;
 
