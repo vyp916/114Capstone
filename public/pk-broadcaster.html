@@ -192,7 +192,7 @@
               console.log(`[pk-broadcaster] 📹 VIDEO track ${i}: enabled=${track.enabled} readyState=${track.readyState} label=${track.label}`);
             });
 
-            const pc = new RTCPeerConnection({ 
+            const pc = new RTCPeerConnection({
               iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
@@ -203,9 +203,18 @@
                 { urls: 'stun:stun1.stunprotocol.org:3478' },
                 { urls: 'stun:stunserver.org:3478' },
                 {
-                  urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'],
-                  username: 'openrelayproject',
-                  credential: 'openrelayproject'
+                  urls: [
+                    'turn:turn.metered.ca:80?transport=udp',
+                    'turn:turn.metered.ca:80?transport=tcp',
+                    'turns:turn.metered.ca:443?transport=tcp'
+                  ],
+                  username: 'bcc8f2dcc8e2a2aae95ebbe0',
+                  credential: 'ZW2KhbhduYbnkw7S'
+                },
+                {
+                  urls: ['turn:numb.viagenie.ca'],
+                  username: 'webrtc@example.com',
+                  credential: 'webrtc'
                 }
               ],
               iceCandidatePoolSize: 20,
@@ -314,7 +323,7 @@
                   delete viewerPeers[id];
                 }
                 // create a new pc for this viewer
-                const vpc = new RTCPeerConnection({ 
+                const vpc = new RTCPeerConnection({
                   iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
@@ -325,9 +334,18 @@
                     { urls: 'stun:stun1.stunprotocol.org:3478' },
                     { urls: 'stun:stunserver.org:3478' },
                     {
-                      urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'],
-                      username: 'openrelayproject',
-                      credential: 'openrelayproject'
+                      urls: [
+                        'turn:turn.metered.ca:80?transport=udp',
+                        'turn:turn.metered.ca:80?transport=tcp',
+                        'turns:turn.metered.ca:443?transport=tcp'
+                      ],
+                      username: 'bcc8f2dcc8e2a2aae95ebbe0',
+                      credential: 'ZW2KhbhduYbnkw7S'
+                    },
+                    {
+                      urls: ['turn:numb.viagenie.ca'],
+                      username: 'webrtc@example.com',
+                      credential: 'webrtc'
                     }
                   ],
                   iceCandidatePoolSize: 20,

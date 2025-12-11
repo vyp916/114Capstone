@@ -453,7 +453,6 @@
       console.warn('[pk-viewer] ⚠️ No available slot for peer', peerId);
       return null;
     }
-https://unsuspectful-pulmonary-tandy.ngrok-free.dev/
     // 處理主播重連：當主播重新加入時自動重建連接
     socket.on('broadcaster', ({ roomId, broadcasterId }) => {
       try {
@@ -476,9 +475,8 @@ https://unsuspectful-pulmonary-tandy.ngrok-free.dev/
           try { peers[id].close(); } catch (e) {}
           delete peers[id];
         }
-        const pc = new RTCPeerConnection({ 
+        const pc = new RTCPeerConnection({
           iceServers: [
-https://unsuspectful-pulmonary-tandy.ngrok-free.dev/
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
@@ -488,9 +486,18 @@ https://unsuspectful-pulmonary-tandy.ngrok-free.dev/
             { urls: 'stun:stun1.stunprotocol.org:3478' },
             { urls: 'stun:stunserver.org:3478' },
             {
-              urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'],
-              username: 'openrelayproject',
-              credential: 'openrelayproject'
+              urls: [
+                'turn:turn.metered.ca:80?transport=udp',
+                'turn:turn.metered.ca:80?transport=tcp',
+                'turns:turn.metered.ca:443?transport=tcp'
+              ],
+              username: 'bcc8f2dcc8e2a2aae95ebbe0',
+              credential: 'ZW2KhbhduYbnkw7S'
+            },
+            {
+              urls: ['turn:numb.viagenie.ca'],
+              username: 'webrtc@example.com',
+              credential: 'webrtc'
             }
           ],
           iceCandidatePoolSize: 20,
