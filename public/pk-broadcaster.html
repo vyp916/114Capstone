@@ -208,7 +208,6 @@
                 { urls: 'stun:stun4.l.google.com:19302' },
                 { urls: 'stun:stun.stunprotocol.org:3478' },
                 { urls: 'stun:stun1.stunprotocol.org:3478' },
-                { urls: 'stun:stunserver.org:3478' },
                 {
                   urls: [
                     'turn:turn.metered.ca:80?transport=udp',
@@ -219,12 +218,17 @@
                   credential: 'ZW2KhbhduYbnkw7S'
                 },
                 {
-                  urls: ['turn:numb.viagenie.ca'],
+                  urls: ['turn:numb.viagenie.ca:3478', 'turn:numb.viagenie.ca:3478?transport=tcp'],
                   username: 'webrtc@example.com',
                   credential: 'webrtc'
+                },
+                {
+                  urls: ['turn:coturn.jssip.net:3478', 'turn:coturn.jssip.net:3478?transport=tcp'],
+                  username: 'jssip',
+                  credential: 'jssip'
                 }
               ],
-              iceCandidatePoolSize: 20,
+              iceCandidatePoolSize: 25,
               iceTransportPolicy: 'all'
             });
             
@@ -339,7 +343,6 @@
                     { urls: 'stun:stun4.l.google.com:19302' },
                     { urls: 'stun:stun.stunprotocol.org:3478' },
                     { urls: 'stun:stun1.stunprotocol.org:3478' },
-                    { urls: 'stun:stunserver.org:3478' },
                     {
                       urls: [
                         'turn:turn.metered.ca:80?transport=udp',
@@ -350,12 +353,17 @@
                       credential: 'ZW2KhbhduYbnkw7S'
                     },
                     {
-                      urls: ['turn:numb.viagenie.ca'],
+                      urls: ['turn:numb.viagenie.ca:3478', 'turn:numb.viagenie.ca:3478?transport=tcp'],
                       username: 'webrtc@example.com',
                       credential: 'webrtc'
+                    },
+                    {
+                      urls: ['turn:coturn.jssip.net:3478', 'turn:coturn.jssip.net:3478?transport=tcp'],
+                      username: 'jssip',
+                      credential: 'jssip'
                     }
                   ],
-                  iceCandidatePoolSize: 20,
+                  iceCandidatePoolSize: 25,
                   iceTransportPolicy: 'all'
                 });
                 viewerPeers[id] = vpc;
