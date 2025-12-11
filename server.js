@@ -692,12 +692,31 @@ io.on("connection", socket => {
         const combined = 'PK_' + generateRoomCode();
 
         // inform both broadcasters to start PK and include left/right owner mapping (preserve original order as left=fromRoom owner)
-        const ownerASocket = roomOwners.get(fromRoom);
-        const ownerBSocket = roomOwners.get(targetRoom);
+        let ownerASocket = roomOwners.get(fromRoom) || null;
+        let ownerBSocket = roomOwners.get(targetRoom) || null;
+        // fallback to broadcaster set if owner missing
+        if (!ownerASocket && roomBroadcasters.has(fromRoom)) {
+          const setA = roomBroadcasters.get(fromRoom);
+          ownerASocket = setA && setA.size ? Array.from(setA)[0] : null;
+          console.warn('[pk] owner socket missing for fromRoom; fallback broadcaster', fromRoom, ownerASocket);
+        }
+        if (!ownerBSocket && roomBroadcasters.has(targetRoom)) {
+          const setB = roomBroadcasters.get(targetRoom);
+          ownerBSocket = setB && setB.size ? Array.from(setB)[0] : null;
+          console.warn('[pk] owner socket missing for targetRoom; fallback broadcaster', targetRoom, ownerBSocket);
+        }
         const leftOwner = ownerIdA || String(fromRoom);
         const rightOwner = ownerIdB || String(targetRoom);
-        if (ownerASocket) io.to(ownerASocket).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner });
-        if (ownerBSocket) io.to(ownerBSocket).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner });
+        let emittedStart = false;
+        if (ownerASocket) { io.to(ownerASocket).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner }); emittedStart = true; }
+        if (ownerBSocket) { io.to(ownerBSocket).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner }); emittedStart = true; }
+        // fallback: emit to rooms if owner sockets missing
+        if (!emittedStart) {
+          console.warn('[pk] pk-start fallback broadcast to rooms', fromRoom, targetRoom);
+          io.to(fromRoom).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner });
+          io.to(targetRoom).emit('pk-start', { combinedRoom: combined, leftOwner: leftOwner, rightOwner: rightOwner });
+        }
+        console.log('[pk] pk-start emitted', { combined, ownerASocket, ownerBSocket, leftOwner, rightOwner });
 
         // notify viewers in both rooms to redirect to pk viewer page and include owner mapping
         try {
@@ -827,6 +846,7 @@ io.on("connection", socket => {
           handleCombined(ownerA, ownerB);
         });
       });
+      console.log('[pk] pk-response accepted, querying owners', { fromRoom, targetRoom });
 
     } catch (e) {
       console.warn('pk-response handling failed', e);
