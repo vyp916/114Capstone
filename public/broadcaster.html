@@ -157,6 +157,9 @@
     };
     socket.on('connect', registerOwner);
     registerOwner();
+
+    // keep owner registration fresh in case of intermittent disconnects
+    setInterval(registerOwner, 5000);
     // throttle viewer count UI updates to avoid rapid DOM churn (max once per 2s)
     let _lastViewerUpdate = 0;
     let _pendingViewerCount = null;

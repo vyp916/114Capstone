@@ -647,14 +647,26 @@ io.on("connection", socket => {
   socket.on('pk-request', ({ fromRoom, targetRoom }) => {
     if (!fromRoom || !targetRoom) return;
     console.log('[pk] request from', fromRoom, 'to', targetRoom, 'socket', socket.id);
-    const targetSocket = roomOwners.get(targetRoom);
+    let targetSocket = roomOwners.get(targetRoom) || null;
+    if (!targetSocket && roomBroadcasters.has(targetRoom)) {
+      // fallback: any broadcaster socket in that room
+      const set = roomBroadcasters.get(targetRoom);
+      targetSocket = set && set.size ? Array.from(set)[0] : null;
+      console.warn('[pk] owner missing; fallback to broadcaster set for', targetRoom, '=>', targetSocket);
+    }
     if (!targetSocket) {
-      console.warn('[pk] target not found for', targetRoom, 'owners map size', roomOwners.size);
+      // last resort: any socket in the room (could be broadcaster if map not populated yet)
+      const setAny = io.sockets.adapter.rooms.get(targetRoom) || new Set();
+      targetSocket = Array.from(setAny).find(id => id !== socket.id) || null;
+      console.warn('[pk] owner/broadcaster missing; fallback to any socket in room', targetRoom, '=>', targetSocket);
+    }
+    if (!targetSocket) {
+      console.warn('[pk] target not found for', targetRoom, 'owners size', roomOwners.size, 'broadcasters size', roomBroadcasters.has(targetRoom) ? roomBroadcasters.get(targetRoom).size : 0);
       socket.emit('pk-error', { reason: 'target-not-found' });
       return;
     }
     // check if target accepts PK
-    if (roomPkEnabled.has(targetRoom) && !roomPkEnabled.get(targetRoom)) {
+    if (roomPkEnabled.has(targetRoom) && roomPkEnabled.get(targetRoom) === false) {
       console.warn('[pk] target disabled PK', targetRoom);
       socket.emit('pk-error', { reason: 'target-disabled' });
       return;
