@@ -295,6 +295,16 @@
       setTimeout(() => { pkSendBtn.disabled = false; }, 3000);
     };
 
+    // show PK errors (e.g., target not found/disabled)
+    socket.on('pk-error', ({ reason }) => {
+      let msg = 'PK 邀請失敗';
+      if (reason === 'target-not-found') msg = '找不到目標房間或對方未開播';
+      if (reason === 'target-disabled') msg = '對方已關閉 PK 接受';
+      alert(msg);
+      const el = document.getElementById('__pk_pending');
+      if (el) el.remove();
+    });
+
     // incoming PK invite
     socket.on('pk-invite', ({ fromRoom, fromSocket }) => {
       // show a non-blocking modal dialog so it appears even if page didn't get recent user focus

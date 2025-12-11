@@ -634,22 +634,27 @@ io.on("connection", socket => {
   // PK: send an invite from one broadcaster room to another
   socket.on('pk-request', ({ fromRoom, targetRoom }) => {
     if (!fromRoom || !targetRoom) return;
+    console.log('[pk] request from', fromRoom, 'to', targetRoom, 'socket', socket.id);
     const targetSocket = roomOwners.get(targetRoom);
     if (!targetSocket) {
+      console.warn('[pk] target not found for', targetRoom, 'owners map size', roomOwners.size);
       socket.emit('pk-error', { reason: 'target-not-found' });
       return;
     }
     // check if target accepts PK
     if (roomPkEnabled.has(targetRoom) && !roomPkEnabled.get(targetRoom)) {
+      console.warn('[pk] target disabled PK', targetRoom);
       socket.emit('pk-error', { reason: 'target-disabled' });
       return;
     }
     // forward invite to target broadcaster
+    console.log('[pk] forwarding invite to socket', targetSocket);
     io.to(targetSocket).emit('pk-invite', { fromRoom, fromSocket: socket.id });
   });
   // response to pk invite: { fromRoom, targetRoom, accept }
   socket.on('pk-response', ({ fromRoom, targetRoom, accept }) => {
     try {
+      console.log('[pk] response', accept ? 'accept' : 'reject', 'from', targetRoom, 'to', fromRoom);
       const fromOwner = roomOwners.get(fromRoom);
       if (!fromOwner) return;
       // notify the requester of accept/reject
