@@ -903,6 +903,7 @@ io.on("connection", socket => {
         const userInfo = socketToUser.get(sid) || { socketId: sid, userId: null, username: '未知使用者' };
         return { socketId: sid, ...userInfo };
       });
+      console.log('[pk] pk-get-partners', room, 'req', socket.id, 'partners', partners.map(p=>p.socketId));
       socket.emit('pk-partners', { room, partners });
     } catch (e) {
       socket.emit('pk-partners', { room, partners: [] });

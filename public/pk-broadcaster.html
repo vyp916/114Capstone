@@ -98,6 +98,9 @@
   <script>
     // Basic PK page: will re-register broadcaster as owner of combined room
     const socket = io();
+    socket.on('connect', () => {
+      console.log('[pk-broadcaster] socket connected', socket.id);
+    });
     const params = new URLSearchParams(window.location.search);
     const combinedRoom = params.get('room');
     const leftOwnerParam = params.get('leftOwner') || params.get('left') || null;
@@ -113,6 +116,7 @@
         // register as broadcaster owner for this combined room
         socket.emit('broadcaster-join', combinedRoom);
         socket.emit('join-room', combinedRoom);
+        socket.emit('broadcaster', combinedRoom);
 
         console.log('[pk-broadcaster] joined combined room', combinedRoom, 'socket', socket.id);
 
@@ -412,6 +416,7 @@
             setTimeout(() => socket.emit('pk-get-partners', combinedRoom), 300);
             socket.on('pk-partners', async ({ room, partners }) => {
               try {
+                console.log('[pk-broadcaster] pk-partners', room, partners.map(p=>p.socketId));
                 // pick first partner that isn't self (if any)
                 const partner = (partners && partners.length) ? partners[0] : null;
                 if (!partner) {
