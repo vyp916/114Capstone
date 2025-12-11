@@ -149,6 +149,14 @@
 
     // join chat room as host (但不要立即 broadcaster-join，等 getUserMedia 成功)
     socket.emit('join-room', roomId);
+
+    // ensure room registers an owner early so PK target lookup succeeds even before video pipeline finishes
+    const registerOwner = () => {
+      if (!roomId) return;
+      socket.emit('broadcaster-join', roomId);
+    };
+    socket.on('connect', registerOwner);
+    registerOwner();
     // throttle viewer count UI updates to avoid rapid DOM churn (max once per 2s)
     let _lastViewerUpdate = 0;
     let _pendingViewerCount = null;
@@ -469,6 +477,7 @@
         video.play().catch(()=>{});
 
         // announce broadcaster: 加入房間並在房間內廣播
+        // keep owner registration fresh after media is ready
         socket.emit('broadcaster-join', roomId);
         socket.emit("broadcaster", roomId);
         // 再次廣播以確保已連線的 viewer 收到通知
