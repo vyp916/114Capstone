@@ -445,6 +445,15 @@ io.on("connection", socket => {
     console.log('[server] broadcaster announces in room', roomId, socket.id);
     // 在房間內廣播 broadcaster 事件
     socket.to(roomId).emit("broadcaster", { roomId, broadcasterId: socket.id });
+
+    // Fallback: treat this announce as an owner registration if none exists yet
+    if (!roomOwners.has(roomId)) {
+      roomOwners.set(roomId, socket.id);
+      roomPkEnabled.set(roomId, true);
+      if (!roomBroadcasters.has(roomId)) roomBroadcasters.set(roomId, new Set());
+      roomBroadcasters.get(roomId).add(socket.id);
+      console.log('[server] broadcaster announce auto-registered owner for room', roomId, 'socket', socket.id, 'owners size', roomOwners.size);
+    }
   });
   
   // broadcaster declares itself as owner of a room
