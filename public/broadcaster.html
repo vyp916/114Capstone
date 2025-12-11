@@ -288,6 +288,8 @@
     pkSendBtn.onclick = () => {
       const target = (pkTargetInput.value || '').trim();
       if (!target) return alert('請輸入目標房間號');
+      // debug: query server to see if target owner is registered
+      socket.emit('pk-check-target', { targetRoom: target });
       socket.emit('pk-request', { fromRoom: roomId, targetRoom: target });
       // show pending panel
       showPkPending(target);
@@ -303,6 +305,11 @@
       alert(msg);
       const el = document.getElementById('__pk_pending');
       if (el) el.remove();
+    });
+
+    // log pk-check-target response for diagnostics
+    socket.on('pk-check-target', ({ targetRoom, owner, pkEnabled }) => {
+      console.log('[pk] check target', targetRoom, 'owner:', owner, 'pkEnabled:', pkEnabled);
     });
 
     // incoming PK invite

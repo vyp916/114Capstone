@@ -631,6 +631,17 @@ io.on("connection", socket => {
     }
   });
 
+  // Debug: check whether a target room has an owner registered
+  socket.on('pk-check-target', ({ targetRoom }) => {
+    try {
+      const owner = targetRoom ? roomOwners.get(targetRoom) || null : null;
+      const pkEnabled = targetRoom ? roomPkEnabled.get(targetRoom) : undefined;
+      socket.emit('pk-check-target', { targetRoom, owner, pkEnabled });
+    } catch (e) {
+      console.warn('pk-check-target failed', e);
+    }
+  });
+
   // PK: send an invite from one broadcaster room to another
   socket.on('pk-request', ({ fromRoom, targetRoom }) => {
     if (!fromRoom || !targetRoom) return;
