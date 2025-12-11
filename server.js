@@ -465,7 +465,7 @@ io.on("connection", socket => {
         // register in roomBroadcasters
         if (!roomBroadcasters.has(roomId)) roomBroadcasters.set(roomId, new Set());
         roomBroadcasters.get(roomId).add(socket.id);
-        console.log('[server] broadcaster joined room', roomId, socket.id, 'user:', userInfo.username);
+        console.log('[server] broadcaster joined room', roomId, socket.id, 'user:', userInfo.username, 'owners size', roomOwners.size);
       }
     } catch (e) {}
   });
@@ -636,6 +636,7 @@ io.on("connection", socket => {
     try {
       const owner = targetRoom ? roomOwners.get(targetRoom) || null : null;
       const pkEnabled = targetRoom ? roomPkEnabled.get(targetRoom) : undefined;
+      console.log('[pk] check-target', targetRoom, 'owner', owner, 'pkEnabled', pkEnabled, 'owners size', roomOwners.size);
       socket.emit('pk-check-target', { targetRoom, owner, pkEnabled });
     } catch (e) {
       console.warn('pk-check-target failed', e);
