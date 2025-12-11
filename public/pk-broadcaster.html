@@ -115,8 +115,11 @@
       } catch (e) {}
         // register as broadcaster owner for this combined room
         socket.emit('broadcaster-join', combinedRoom);
+        console.log('[pk-broadcaster] emitted broadcaster-join', combinedRoom);
         socket.emit('join-room', combinedRoom);
+        console.log('[pk-broadcaster] emitted join-room', combinedRoom);
         socket.emit('broadcaster', combinedRoom);
+        console.log('[pk-broadcaster] emitted broadcaster event', combinedRoom);
 
         console.log('[pk-broadcaster] joined combined room', combinedRoom, 'socket', socket.id);
 

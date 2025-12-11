@@ -888,6 +888,10 @@ io.on("connection", socket => {
   // return list of partner socket ids in a given room (excluding requester)
   socket.on('pk-get-partners', (room) => {
     try {
+      const bcastersInRoom = roomBroadcasters.has(room) ? Array.from(roomBroadcasters.get(room)) : [];
+      const allInRoom = Array.from(io.sockets.adapter.rooms.get(room) || new Set());
+      console.log('[pk] pk-get-partners', room, 'req', socket.id, 'broadcasters', bcastersInRoom, 'all sockets', allInRoom);
+      
       // prefer returning broadcaster sockets in the room so pk handshake targets broadcasters only
       let partnerIds = [];
       if (roomBroadcasters.has(room)) {
@@ -897,13 +901,14 @@ io.on("connection", socket => {
       if ((!partnerIds || partnerIds.length === 0)) {
         const set = io.sockets.adapter.rooms.get(room) || new Set();
         partnerIds = Array.from(set).filter(sid => sid !== socket.id);
+        console.log('[pk] pk-get-partners fallback, found sockets', partnerIds);
       }
       // Include user info for each partner
       const partners = partnerIds.map(sid => {
         const userInfo = socketToUser.get(sid) || { socketId: sid, userId: null, username: '未知使用者' };
         return { socketId: sid, ...userInfo };
       });
-      console.log('[pk] pk-get-partners', room, 'req', socket.id, 'partners', partners.map(p=>p.socketId));
+      console.log('[pk] pk-get-partners returning', partners.length, 'partners:', partners.map(p=>p.socketId));
       socket.emit('pk-partners', { room, partners });
     } catch (e) {
       socket.emit('pk-partners', { room, partners: [] });
